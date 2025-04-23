@@ -1,0 +1,118 @@
+body {
+    width: 400px;
+    padding: 16px;
+    font-family: Arial, sans-serif;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.tabs {
+    display: flex;
+    gap: 8px;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 8px;
+}
+
+.tab-button {
+    padding: 8px 16px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    border-radius: 4px;
+}
+
+.tab-button:hover {
+    background-color: #f0f0f0;
+}
+
+.tab-button.active {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.tab-pane {
+    display: none;
+}
+
+.tab-pane.active {
+    display: block;
+}
+
+.properties-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.property-item {
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.property-item:hover {
+    background-color: #f9f9f9;
+}
+
+.property-info {
+    flex: 1;
+}
+
+.property-title {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.property-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.action-button {
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.action-button:hover {
+    opacity: 0.8;
+}
+
+.favorite-button {
+    background-color: #ffd700;
+}
+
+.ignore-button {
+    background-color: #ff6b6b;
+    color: white;
+}
+
+h1 {
+    font-size: 18px;
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.content {
+    padding: 10px;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+}
+
+p {
+    margin: 0;
+    color: #666;
+    font-size: 14px;
+} 

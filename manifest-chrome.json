@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "ImobiliarePlus",
+  "version": "1.0",
+  "description": "Enhance your property search experience on imobiliare.ro",
+  "icons": {
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_icon": {
+      "48": "icons/icon-48.png",
+      "96": "icons/icon-96.png",
+      "128": "icons/icon-128.png"
+    },
+    "default_title": "ImobiliarePlus",
+    "default_popup": "popup/popup.html"
+  },
+  "background": {
+    "service_worker": "background/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.imobiliare.ro/*"],
+      "js": ["content/content.js"]
+    }
+  ],
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "*://*.imobiliare.ro/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*"],
+      "matches": ["*://*.imobiliare.ro/*"]
+    }
+  ]
+} 

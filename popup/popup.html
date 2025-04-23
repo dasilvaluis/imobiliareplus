@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>ImobiliarePlus</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <div class="tabs">
+            <button class="tab-button active" data-tab="favorites">⭐ Favorites</button>
+            <button class="tab-button" data-tab="ignored">🚫 Ignored</button>
+        </div>
+        
+        <div class="tab-content">
+            <div id="favorites" class="tab-pane active">
+                <h3>Favorite Properties</h3>
+                <div id="favorite-properties" class="properties-list">
+                    <!-- Favorite properties will be listed here -->
+                </div>
+            </div>
+            
+            <div id="ignored" class="tab-pane">
+                <h3>Ignored Properties</h3>
+                <div id="ignored-properties" class="properties-list">
+                    <!-- Ignored properties will be listed here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="./popup.js"></script>
+</body>
+</html> 
