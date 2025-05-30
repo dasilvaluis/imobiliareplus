@@ -25,10 +25,11 @@ function getPropertySelectors() {
             idRegex: /([A-Z0-9]+)$/i, // Capture ID like 'IDCAjn' from href
             title: 'p[data-cy="listing-item-title"]',
             thumbnail: (card, propertyId) => card.querySelector('img[data-cy="listing-item-image-source"]')?.src,
-            // listContainer: 'div[data-cy="search-listing"]', // Old single selector
-            listContainerSelectors: [ // New array of selectors for Storia.ro
-                'div[data-cy="search.listing.promoted"] ul.css-rqwdxd.e127mklk0',
-                'div[data-cy="search.listing.organic"] ul.css-rqwdxd.e127mklk0'
+            // Updated array of selectors for Storia.ro including the map view
+            listContainerSelectors: [ 
+                'div[data-cy="search.listing.promoted"] ul',
+                'div[data-cy="search.listing.organic"] ul',
+                'div[data-cy="search.map.listing.organic"] ul' // Added map view container selector
             ],
             propertyIdAttribute: null // ID is from URL for storia.ro
         };
