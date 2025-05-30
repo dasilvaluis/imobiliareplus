@@ -5,6 +5,19 @@ console.log('ImobiliarePlus content script loaded');
 
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 const currentHostname = window.location.hostname;
+let favoriteCache = null;
+let ignoredCache = null;
+let activeObservers = [];
+
+// Load initial caches for favorites and ignored properties
+function loadCaches() {
+    browserAPI.runtime.sendMessage({ type: 'GET_FAVORITE_PROPERTIES', hostname: currentHostname }, res => {
+        favoriteCache = res.properties;
+    });
+    browserAPI.runtime.sendMessage({ type: 'GET_IGNORED_PROPERTIES', hostname: currentHostname }, res => {
+        ignoredCache = res.properties;
+    });
+}
 
 // Function to get selectors based on hostname
 function getPropertySelectors() {
@@ -89,11 +102,18 @@ function addButtonsToCard(card) {
         }
     }
     
-    // Removed fallback for propertyIdAttribute for storia.ro as ID is from URL
-    
     if (!propertyId) {
-        console.warn('Property ID not found for card:', card, 'URL:', propertyUrl, 'using regex:', selectors.idRegex);
-        return;
+        console.warn('Property ID not found, falling back to URL hash.');
+        propertyId = btoa(propertyUrl).slice(0, 12);
+    }
+
+    if (favoriteCache?.some(p => p.id === propertyId)) {
+        console.log('Property already favorited:', propertyId);
+        return; // Skip if already favorited
+    }
+    if (ignoredCache?.some(p => p.id === propertyId)) {
+        console.log('Property already ignored:', propertyId);
+        return; // Skip if already ignored
     }
 
     // Get property details
@@ -414,7 +434,8 @@ function setupObservers() {
                     }
                 }
             });
-            mapObserver.observe(mapContainer, { attributes: true, attributeFilter: ['class', 'style'] });
+            mapObserver.observe(mapContainer, { childList: true, subtree: true });
+            activeObservers.push(mapObserver);
         }
     }
 }
@@ -425,6 +446,7 @@ function initialize() {
         console.log(`ImobiliarePlus: Not initializing on unsupported site: ${currentHostname}`);
         return;
     }
+    loadCaches();
     console.log(`Initializing ImobiliarePlus on ${currentHostname}...`);
     setupObservers();
 }
@@ -533,5 +555,3 @@ browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Ensure other message types are handled or acknowledged if necessary
     return true; // Indicates that sendResponse will be called asynchronously
 });
-
-let activeObservers = [];
