@@ -12,6 +12,7 @@ function getPropertySelectors() {
         return {
             card: '[id^="listing-"], .listing-card',
             link: 'a[href*="/oferta/"]',
+            price: '[data-cy="card-price"]',
             idRegex: /-(\d+)$/,
             title: 'h3 span', // Specific to imobiliare.ro structure
             thumbnail: (card, propertyId) => card.querySelector(`#gallery_slider_${propertyId} .swiper-slide img`)?.src,
@@ -22,6 +23,7 @@ function getPropertySelectors() {
         return {
             card: 'article[data-cy="listing-item"]',
             link: 'a[data-cy="listing-item-link"]',
+            price: 'span[data-sentry-component="Price"]',
             idRegex: /([A-Z0-9]+)$/i, // Capture ID like 'IDCAjn' from href
             title: 'p[data-cy="listing-item-title"]',
             thumbnail: (card, propertyId) => card.querySelector('img[data-cy="listing-item-image-source"]')?.src,
@@ -81,12 +83,22 @@ function addButtonsToCard(card) {
         thumbnailUrl = thumbnailImgElement?.src || '';
     }
 
+    let propertyPrice = '';
+    if (selectors.price) {
+        const priceElement = card.querySelector(selectors.price);
+        if (priceElement) {
+            propertyPrice = priceElement.textContent.trim();
+            console.log('Found property price:', propertyPrice);
+        }
+    }
+
     const propertyInfo = {
         id: propertyId,
         title: propertyTitle,
         url: propertyUrl,
         thumbnail: thumbnailUrl,
-        hostname: currentHostname // Store hostname for later use if needed
+        hostname: currentHostname,
+        price: propertyPrice
     };
 
     console.log('Found property:', propertyInfo);
