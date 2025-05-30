@@ -130,35 +130,89 @@ function addButtonsToCard(card) {
 
     console.log('Found property:', propertyInfo);
 
-    // Create buttons container
     const buttonsContainer = document.createElement('div');
     buttonsContainer.className = 'imobiliare-plus-buttons';
-    buttonsContainer.style.display = 'flex';
-    buttonsContainer.style.gap = '8px';
-    buttonsContainer.style.marginTop = '8px';
-    buttonsContainer.style.padding = '0 16px 16px';
+    buttonsContainer.style.cssText = `
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 10px;
+        padding: 0 16px 16px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    `;
 
-    // Create favorite button
+    // Favorite button
     const favoriteButton = document.createElement('button');
     favoriteButton.className = 'imobiliare-plus-favorite';
-    favoriteButton.innerHTML = '⭐ Favorite';
-    favoriteButton.style.padding = '4px 8px';
-    favoriteButton.style.border = 'none';
-    favoriteButton.style.borderRadius = '4px';
-    favoriteButton.style.cursor = 'pointer';
-    favoriteButton.style.backgroundColor = '#f0f0f0';
-
-    // Create ignore button
+    favoriteButton.innerHTML = '<span class="icon">★</span> <span class="text">Favorite</span>';
+    favoriteButton.style.cssText = `
+        flex: 1;
+        padding: 8px 12px;
+        border: 1px solid #e0e0e0;
+        border-radius: 20px;
+        cursor: pointer;
+        background-color: white;
+        color: #42758C;
+        font-weight: 500;
+        font-size: 13px;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        outline: none;
+    `;
+    // Ignore button
     const ignoreButton = document.createElement('button');
     ignoreButton.className = 'imobiliare-plus-ignore';
-    ignoreButton.innerHTML = '🚫 Ignore';
-    ignoreButton.style.padding = '4px 8px';
-    ignoreButton.style.border = 'none';
-    ignoreButton.style.borderRadius = '4px';
-    ignoreButton.style.cursor = 'pointer';
-    ignoreButton.style.backgroundColor = '#f0f0f0';
-    ignoreButton.style.color = '#666';
+    ignoreButton.innerHTML = '<span class="icon">✕</span> <span class="text">Hide</span>';
+    ignoreButton.style.cssText = `
+        flex: 1;
+        padding: 8px 12px;
+        border: 1px solid #e0e0e0;
+        border-radius: 20px;
+        cursor: pointer;
+        background-color: white;
+        color: #1e2839;
+        font-weight: 500;
+        font-size: 13px;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        outline: none;
+    `;
+    
+    // Favorite button hover
+    favoriteButton.addEventListener('mouseover', () => {
+        if (!favoriteButton.classList.contains('active')) {
+            favoriteButton.style.backgroundColor = '#f0f7f9';
+            favoriteButton.style.borderColor = '#3e8b9c';
+        }
+    });
+    favoriteButton.addEventListener('mouseout', () => {
+        if (!favoriteButton.classList.contains('active')) {
+            favoriteButton.style.backgroundColor = 'white';
+            favoriteButton.style.borderColor = '#e0e0e0';
+        }
+    });
 
+    // Hide button hover
+    ignoreButton.addEventListener('mouseover', () => {
+        if (!ignoreButton.classList.contains('active')) {
+            ignoreButton.style.backgroundColor = '#f5f6f8';
+            ignoreButton.style.borderColor = '#1e2839';
+        }
+    });
+    ignoreButton.addEventListener('mouseout', () => {
+        if (!ignoreButton.classList.contains('active')) {
+            ignoreButton.style.backgroundColor = 'white';
+            ignoreButton.style.borderColor = '#e0e0e0';
+        }
+    });
     // Add buttons to container
     buttonsContainer.appendChild(favoriteButton);
     buttonsContainer.appendChild(ignoreButton);
@@ -168,42 +222,86 @@ function addButtonsToCard(card) {
 
     
     // Check if property is already favorite/ignored
-    // Pass hostname to distinguish between properties from different sites if IDs are not unique across sites
     browserAPI.runtime.sendMessage({ type: 'GET_FAVORITE_PROPERTIES', hostname: currentHostname }, response => {
         if (response.properties.some(p => p.id === propertyId && p.hostname === currentHostname)) {
-            favoriteButton.style.backgroundColor = '#ffd700';
+            favoriteButton.style.backgroundColor = '#ffebb3';
+            favoriteButton.style.color = '#b18000';
+            favoriteButton.style.boxShadow = 'inset 0 1px 3px rgba(0,0,0,0.1)';
+            favoriteButton.classList.add('active');
+            favoriteButton.querySelector('.icon').textContent = '★';  // Filled star
         }
     });
 
     browserAPI.runtime.sendMessage({ type: 'GET_IGNORED_PROPERTIES', hostname: currentHostname }, response => {
         if (response.properties.some(p => p.id === propertyId && p.hostname === currentHostname)) {
-            ignoreButton.style.backgroundColor = '#ff6b6b';
-            ignoreButton.style.color = '#fff';
-            card.style.opacity = '0.5';
+            ignoreButton.style.backgroundColor = '#ffdbdb';
+            ignoreButton.style.color = '#d32f2f';
+            ignoreButton.style.boxShadow = 'inset 0 1px 3px rgba(0,0,0,0.1)';
+            ignoreButton.classList.add('active');
+            card.style.opacity = '0.6';
         }
     });
 
-    // Add click handlers
-    favoriteButton.addEventListener('click', () => {
+    // Update the click handlers to include smooth transitions:
+    favoriteButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        // Add a visual feedback effect
+        favoriteButton.style.transform = 'scale(0.95)';
+        setTimeout(() => { favoriteButton.style.transform = 'scale(1)'; }, 100);
+        
         browserAPI.runtime.sendMessage({
             type: 'TOGGLE_FAVORITE_PROPERTY',
-            propertyInfo: propertyInfo // propertyInfo now includes hostname
+            propertyInfo: propertyInfo
         }, response => {
             if (response.success) {
-                favoriteButton.style.backgroundColor = response.isFavorite ? '#ffd700' : '#f0f0f0';
+                if (response.isFavorite) {
+                    favoriteButton.style.backgroundColor = '#3e8b9c';
+                    favoriteButton.style.color = '#ffffff';
+                    favoriteButton.style.border = '1px solidrgb(35, 255, 35)';
+                    favoriteButton.style.boxShadow = '0 1px 3px rgba(0,0,0,0.12)';
+                    favoriteButton.classList.add('active');
+                    favoriteButton.querySelector('.icon').textContent = '★';  // Filled star
+                } else {
+                    favoriteButton.style.backgroundColor = '#f8f8f8';
+                    favoriteButton.style.color = '#333';
+                    favoriteButton.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
+                    favoriteButton.classList.remove('active');
+                    favoriteButton.querySelector('.icon').textContent = '★';  // Empty star
+                }
             }
         });
     });
 
-    ignoreButton.addEventListener('click', () => {
+    ignoreButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        // Add a visual feedback effect
+        ignoreButton.style.transform = 'scale(0.95)';
+        setTimeout(() => { ignoreButton.style.transform = 'scale(1)'; }, 100);
+        
         browserAPI.runtime.sendMessage({
             type: 'TOGGLE_IGNORE_PROPERTY',
-            propertyInfo: propertyInfo // propertyInfo now includes hostname
+            propertyInfo: propertyInfo
         }, response => {
             if (response.success) {
-                ignoreButton.style.backgroundColor = response.isIgnored ? '#ff6b6b' : '#f0f0f0';
-                ignoreButton.style.color = response.isIgnored ? '#fff' : '#666';
-                card.style.opacity = response.isIgnored ? '0.5' : '1';
+                if (response.isIgnored) {
+                    ignoreButton.style.backgroundColor = '#1e2839';
+                    ignoreButton.style.color = '#ffffff';
+                    ignoreButton.style.border = '1px solid #1e2839';
+                    ignoreButton.style.boxShadow = '0 1px 3px rgba(0,0,0,0.12)';
+                    ignoreButton.classList.add('active');
+                    card.style.opacity = '0.6';
+                    card.style.transition = 'opacity 0.3s ease';
+                } else {
+                    ignoreButton.style.backgroundColor = '#f8f8f8';
+                    ignoreButton.style.color = '#555';
+                    ignoreButton.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
+                    ignoreButton.classList.remove('active');
+                    card.style.opacity = '1';
+                }
             }
         });
     });
