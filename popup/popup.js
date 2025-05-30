@@ -6,6 +6,9 @@ console.log('ImobiliarePlus extension popup script loaded');
 // Track property data globally to enable search and sorting
 let favoriteProperties = [];
 let ignoredProperties = [];
+let currentSearchTerm = '';
+let favoriteSortOption = 'default';
+let ignoredSortOption = 'default';
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM Content Loaded in popup');
@@ -20,8 +23,13 @@ document.addEventListener('DOMContentLoaded', () => {
     setupSorting();
     
     // Load both property types immediately to update badge counts
-    loadFavoriteProperties();
-    loadIgnoredProperties();
+    Promise.all([
+        new Promise(resolve => loadFavoriteProperties(resolve)),
+        new Promise(resolve => loadIgnoredProperties(resolve))
+    ]).then(() => {
+        // Update all badge counts after both data sets are loaded
+        updateAllBadgeCounts();
+    });
 });
 
 function setupTabs() {
@@ -53,14 +61,8 @@ function setupSearch() {
     const searchInput = document.getElementById('searchInput');
     
     searchInput.addEventListener('input', () => {
-        const searchTerm = searchInput.value.toLowerCase().trim();
-        const activeTab = document.querySelector('.tab-pane.active').id;
-        
-        if (activeTab === 'favorites') {
-            filterProperties(favoriteProperties, 'favorite-properties', searchTerm, true);
-        } else {
-            filterProperties(ignoredProperties, 'ignored-properties', searchTerm, false, true);
-        }
+        currentSearchTerm = searchInput.value.toLowerCase().trim();
+        applyCurrentFilters();
     });
 }
 
@@ -69,60 +71,73 @@ function setupSorting() {
     const sortIgnored = document.getElementById('sortIgnored');
     
     sortFavorites.addEventListener('change', () => {
-        sortProperties(favoriteProperties, sortFavorites.value, 'favorite-properties', true);
+        favoriteSortOption = sortFavorites.value;
+        if (document.querySelector('.tab-pane.active').id === 'favorites') {
+            applyCurrentFilters();
+        }
     });
     
     sortIgnored.addEventListener('change', () => {
-        sortProperties(ignoredProperties, sortIgnored.value, 'ignored-properties', false, true);
+        ignoredSortOption = sortIgnored.value;
+        if (document.querySelector('.tab-pane.active').id === 'ignored') {
+            applyCurrentFilters();
+        }
     });
 }
 
-function filterProperties(properties, containerId, searchTerm, isFavorite = false, isIgnored = false) {
-    const container = document.getElementById(containerId);
-    const emptyStateId = isFavorite ? 'favorites-empty' : 'ignored-empty';
-    const emptyState = document.getElementById(emptyStateId);
+// Function to apply current filters to active tab
+function applyCurrentFilters() {
+    const activeTabId = document.querySelector('.tab-pane.active').id;
     
-    // Clear the container
-    container.innerHTML = '';
-    
-    if (!searchTerm) {
-        // If no search term, show all properties
-        displayProperties(properties, containerId, isFavorite, isIgnored);
-        return;
+    if (activeTabId === 'favorites') {
+        // First apply sorting
+        let filteredProperties = [...favoriteProperties];
+        if (favoriteSortOption !== 'default') {
+            filteredProperties = sortPropertiesArray(filteredProperties, favoriteSortOption);
+        }
+        
+        // Then apply search filter
+        if (currentSearchTerm) {
+            filteredProperties = filterPropertiesArray(filteredProperties, currentSearchTerm);
+        }
+        
+        // Display the filtered properties
+        displayProperties(filteredProperties, 'favorite-properties', true);
+    } else {
+        // First apply sorting
+        let filteredProperties = [...ignoredProperties];
+        if (ignoredSortOption !== 'default') {
+            filteredProperties = sortPropertiesArray(filteredProperties, ignoredSortOption);
+        }
+        
+        // Then apply search filter
+        if (currentSearchTerm) {
+            filteredProperties = filterPropertiesArray(filteredProperties, currentSearchTerm);
+        }
+        
+        // Display the filtered properties
+        displayProperties(filteredProperties, 'ignored-properties', false, true);
     }
+}
+
+// Helper function to filter properties by search term
+function filterPropertiesArray(properties, searchTerm) {
+    if (!searchTerm) return properties;
     
-    // Filter the properties
-    const filteredProperties = properties.filter(property => {
+    return properties.filter(property => {
         return (
             (property.title && property.title.toLowerCase().includes(searchTerm)) ||
             (property.price && property.price.toLowerCase().includes(searchTerm)) ||
             (property.hostname && property.hostname.toLowerCase().includes(searchTerm))
         );
     });
-    
-    // Display filtered results
-    if (filteredProperties.length > 0) {
-        emptyState.style.display = 'none';
-        container.style.display = 'flex';
-        
-        filteredProperties.forEach(property => {
-            const item = createPropertyItem(property, isFavorite, isIgnored);
-            container.appendChild(item);
-        });
-    } else {
-        container.style.display = 'none';
-        emptyState.style.display = 'flex';
-        emptyState.innerHTML = `
-            <i class="fas fa-search empty-icon"></i>
-            <p>No results found</p>
-            <p class="empty-hint">Try different search terms</p>
-        `;
-    }
 }
 
-function sortProperties(properties, sortOption, containerId, isFavorite = false, isIgnored = false) {
-    // Sort the properties
-    const sortedProperties = [...properties].sort((a, b) => {
+// Helper function to sort properties
+function sortPropertiesArray(properties, sortOption) {
+    if (sortOption === 'default') return properties;
+    
+    return [...properties].sort((a, b) => {
         switch(sortOption) {
             case 'price-asc':
                 const priceA = extractNumericPrice(a.price);
@@ -136,8 +151,6 @@ function sortProperties(properties, sortOption, containerId, isFavorite = false,
                 return 0;
         }
     });
-    
-    displayProperties(sortedProperties, containerId, isFavorite, isIgnored);
 }
 
 function extractNumericPrice(priceStr) {
@@ -284,16 +297,44 @@ function displayProperties(properties, containerId, isFavorite = false, isIgnore
             container.appendChild(item);
         });
         
-        // Update badge count
-        updateBadgeCount(isFavorite ? 'favorites-count' : 'ignored-count', properties.length);
+        // Badge counts are now updated separately in updateAllBadgeCounts
     } else {
         container.style.display = 'none';
         emptyState.style.display = 'flex';
+        
+        // If it's an empty result from filtering, show appropriate message
+        if (currentSearchTerm) {
+            emptyState.innerHTML = `
+                <i class="fas fa-search empty-icon"></i>
+                <p>No results found</p>
+                <p class="empty-hint">Try different search terms</p>
+            `;
+        } else {
+            // Default empty state
+            if (isFavorite) {
+                emptyState.innerHTML = `
+                    <i class="fas fa-star empty-icon"></i>
+                    <p>No favorite properties yet</p>
+                    <p class="empty-hint">Browse property websites and click the star icon to add favorites</p>
+                `;
+            } else {
+                emptyState.innerHTML = `
+                    <i class="fas fa-ban empty-icon"></i>
+                    <p>No ignored properties</p>
+                    <p class="empty-hint">Browse property websites and click the ignore icon to hide properties</p>
+                `;
+            }
+        }
     }
 }
 
+function updateAllBadgeCounts() {
+    updateBadgeCount('favorites-count', favoriteProperties.length);
+    updateBadgeCount('ignored-count', ignoredProperties.length);
+}
+
 // Function to load favorite properties
-function loadFavoriteProperties() {
+function loadFavoriteProperties(callback = null) {
     // Show loading state
     const container = document.getElementById('favorite-properties');
     const emptyState = document.getElementById('favorites-empty');
@@ -302,20 +343,32 @@ function loadFavoriteProperties() {
     emptyState.style.display = 'none';
     container.style.display = 'flex';
     
+    // Set the select to match current sort option
+    document.getElementById('sortFavorites').value = favoriteSortOption;
+    
+    // Set search input to current search term
+    document.getElementById('searchInput').value = currentSearchTerm;
+    
     browserAPI.runtime.sendMessage({ type: 'GET_FAVORITE_PROPERTIES' }, response => {
         if (response && response.properties) {
             favoriteProperties = response.properties;
-            displayProperties(favoriteProperties, 'favorite-properties', true);
+            applyCurrentFilters(); // Apply filters after loading
         } else {
             // Handle error or empty state
             favoriteProperties = [];
             displayProperties([], 'favorite-properties', true);
         }
+        
+        // Update badge counts regardless of active tab
+        updateAllBadgeCounts();
+        
+        // Call the callback if provided
+        if (callback) callback();
     });
 }
 
 // Function to load ignored properties
-function loadIgnoredProperties() {
+function loadIgnoredProperties(callback = null) {
     // Show loading state
     const container = document.getElementById('ignored-properties');
     const emptyState = document.getElementById('ignored-empty');
@@ -324,15 +377,33 @@ function loadIgnoredProperties() {
     emptyState.style.display = 'none';
     container.style.display = 'flex';
     
+    // Set the select to match current sort option
+    document.getElementById('sortIgnored').value = ignoredSortOption;
+    
+    // Set search input to current search term
+    document.getElementById('searchInput').value = currentSearchTerm;
+    
     browserAPI.runtime.sendMessage({ type: 'GET_IGNORED_PROPERTIES' }, response => {
         if (response && response.properties) {
             ignoredProperties = response.properties;
-            displayProperties(ignoredProperties, 'ignored-properties', false, true);
+            
+            // Only apply filters to active tab
+            if (document.querySelector('.tab-pane.active').id === 'ignored') {
+                applyCurrentFilters();
+            }
         } else {
             // Handle error or empty state
             ignoredProperties = [];
-            displayProperties([], 'ignored-properties', false, true);
+            if (document.querySelector('.tab-pane.active').id === 'ignored') {
+                displayProperties([], 'ignored-properties', false, true);
+            }
         }
+        
+        // Update badge counts regardless of active tab
+        updateAllBadgeCounts();
+        
+        // Call the callback if provided
+        if (callback) callback();
     });
 }
 
@@ -363,8 +434,8 @@ function toggleFavorite(propertyId, item) {
                 document.getElementById('favorites-empty').style.display = 'flex';
             }
             
-            // Update badge count
-            updateBadgeCount('favorites-count', favoriteProperties.length);
+            // Update all badge counts
+            updateAllBadgeCounts();
             
             // Send update to content script
             notifyContentScriptOfUpdate(propertyId, false, response.isIgnored || false);
@@ -391,8 +462,8 @@ function toggleIgnore(propertyId, item) {
                 document.getElementById('ignored-empty').style.display = 'flex';
             }
             
-            // Update badge count
-            updateBadgeCount('ignored-count', ignoredProperties.length);
+            // Update all badge counts
+            updateAllBadgeCounts();
             
             // Send update to content script
             notifyContentScriptOfUpdate(propertyId, response.isFavorite || false, false);
