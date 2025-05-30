@@ -260,6 +260,7 @@ function setupObservers() {
                 });
             });
             observer.observe(container, { childList: true, subtree: true });
+            activeObservers.push(observer); // Track this observer
             console.log('Observer set up for:', containerSelector);
             return true; // Observer setup was successful
         } else {
@@ -330,6 +331,46 @@ function initialize() {
     setupObservers();
 }
 
+let lastUrl = location.href;
+const urlObserver = new MutationObserver(() => {
+    if (location.href !== lastUrl) {
+        lastUrl = location.href;
+        console.log('URL changed to:', lastUrl);
+        
+        // Clean up old observers
+        activeObservers.forEach(observer => observer.disconnect());
+        activeObservers = [];
+        
+        // Reinitialize the extension for the new URL
+        setTimeout(() => {
+            initialize();
+        }, 1000); // Small delay to allow the page to render
+    }
+});
+
+// Start observing for URL changes
+urlObserver.observe(document, { subtree: true, childList: true });
+
+let scrollTimeout;
+window.addEventListener('scroll', () => {
+    if (!selectors) return;
+    
+    clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(() => {
+        console.log('Processing cards after scroll');
+        processPropertyCards(); // Process any new cards that appeared during scrolling
+    }, 300); // Debounce to avoid excessive processing
+});
+
+// Add this at the end of the file for periodic checking
+// This ensures functionality even if observers miss something
+setInterval(() => {
+    if (document.visibilityState === 'visible' && selectors) {
+        console.log('Periodic check: processing cards');
+        processPropertyCards();
+    }
+}, 10000); // Every 10 seconds
+
 // Start observing as soon as possible
 initialize();
 
@@ -394,3 +435,5 @@ browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Ensure other message types are handled or acknowledged if necessary
     return true; // Indicates that sendResponse will be called asynchronously
 });
+
+let activeObservers = [];
