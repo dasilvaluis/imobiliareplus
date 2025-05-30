@@ -26,6 +26,10 @@
     {
       "matches": ["*://*.imobiliare.ro/*"],
       "js": ["content/content.js"]
+    },
+    {
+      "matches": ["*://*.storia.ro/*"],
+      "js": ["content/content.js"]
     }
   ],
   

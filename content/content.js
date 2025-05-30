@@ -3,36 +3,89 @@
 
 console.log('ImobiliarePlus content script loaded');
 
-// Function to add favorite and ignore buttons to property listings
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+const currentHostname = window.location.hostname;
+
+// Function to get selectors based on hostname
+function getPropertySelectors() {
+    if (currentHostname.includes('imobiliare.ro')) {
+        return {
+            card: '[id^="listing-"], .listing-card',
+            link: 'a[href*="/oferta/"]',
+            idRegex: /-(\d+)$/,
+            title: 'h3 span', // Specific to imobiliare.ro structure
+            thumbnail: (card, propertyId) => card.querySelector(`#gallery_slider_${propertyId} .swiper-slide img`)?.src,
+            listContainer: '#scrollableList',
+            propertyIdAttribute: null
+        };
+    } else if (currentHostname.includes('storia.ro')) {
+        return {
+            card: 'article[data-cy="listing-item"]',
+            link: 'a[data-cy="listing-item-link"]',
+            idRegex: /([A-Z0-9]+)$/i, // Capture ID like 'IDCAjn' from href
+            title: 'p[data-cy="listing-item-title"]',
+            thumbnail: (card, propertyId) => card.querySelector('img[data-cy="listing-item-image-source"]')?.src,
+            // listContainer: 'div[data-cy="search-listing"]', // Old single selector
+            listContainerSelectors: [ // New array of selectors for Storia.ro
+                'div[data-cy="search.listing.promoted"] ul.css-rqwdxd.e127mklk0',
+                'div[data-cy="search.listing.organic"] ul.css-rqwdxd.e127mklk0'
+            ],
+            propertyIdAttribute: null // ID is from URL for storia.ro
+        };
+    }
+    console.warn('ImobiliarePlus: Unsupported site:', currentHostname);
+    return null;
+}
+
+const selectors = getPropertySelectors();
 
 // Function to add favorite and ignore buttons to a property card
 function addButtonsToCard(card) {
+    if (!selectors) return; // Unsupported site or selectors not found
+
     // Skip if buttons already added
     if (card.querySelector('.imobiliare-plus-buttons')) return;
 
-    // Get property ID from the card
-    const propertyLink = card.querySelector('a[href*="/oferta/"]');
-    if (!propertyLink) return;
+    const propertyLinkElement = card.querySelector(selectors.link);
+    if (!propertyLinkElement) {
+        console.warn('Property link element not found for card:', card);
+        return;
+    }
+    const propertyUrl = propertyLinkElement.href;
     
-    // Extract the numerical ID from the URL
-    const propertyId = propertyLink.href.match(/-(\d+)$/)?.[1];
-    if (!propertyId) return;
+    let propertyId;
+    if (selectors.idRegex) {
+        const match = propertyUrl.match(selectors.idRegex);
+        if (match && match[1]) {
+            propertyId = match[1];
+        }
+    }
+    
+    // Removed fallback for propertyIdAttribute for storia.ro as ID is from URL
+    
+    if (!propertyId) {
+        console.warn('Property ID not found for card:', card, 'URL:', propertyUrl, 'using regex:', selectors.idRegex);
+        return;
+    }
 
     // Get property details
-    const propertyTitle = card.querySelector('h3 span')?.textContent.trim() || '';
-    const propertyUrl = propertyLink.href;
+    const propertyTitle = card.querySelector(selectors.title)?.textContent.trim() || '';
     
-    // Get thumbnail image
-    const gallerySlider = card.querySelector(`#gallery_slider_${propertyId}`);
-    const thumbnailImg = gallerySlider?.querySelector('.swiper-slide img');
-    const thumbnailUrl = thumbnailImg?.src || '';
+    let thumbnailUrl = '';
+    if (typeof selectors.thumbnail === 'function') {
+        thumbnailUrl = selectors.thumbnail(card, propertyId) || '';
+    } else { 
+        // Fallback for simple string selector (though function is preferred)
+        const thumbnailImgElement = card.querySelector(selectors.thumbnail);
+        thumbnailUrl = thumbnailImgElement?.src || '';
+    }
 
     const propertyInfo = {
         id: propertyId,
         title: propertyTitle,
         url: propertyUrl,
-        thumbnail: thumbnailUrl
+        thumbnail: thumbnailUrl,
+        hostname: currentHostname // Store hostname for later use if needed
     };
 
     console.log('Found property:', propertyInfo);
@@ -75,14 +128,15 @@ function addButtonsToCard(card) {
 
     
     // Check if property is already favorite/ignored
-    browserAPI.runtime.sendMessage({ type: 'GET_FAVORITE_PROPERTIES' }, response => {
-        if (response.properties.some(p => p.id === propertyId)) {
+    // Pass hostname to distinguish between properties from different sites if IDs are not unique across sites
+    browserAPI.runtime.sendMessage({ type: 'GET_FAVORITE_PROPERTIES', hostname: currentHostname }, response => {
+        if (response.properties.some(p => p.id === propertyId && p.hostname === currentHostname)) {
             favoriteButton.style.backgroundColor = '#ffd700';
         }
     });
 
-    browserAPI.runtime.sendMessage({ type: 'GET_IGNORED_PROPERTIES' }, response => {
-        if (response.properties.some(p => p.id === propertyId)) {
+    browserAPI.runtime.sendMessage({ type: 'GET_IGNORED_PROPERTIES', hostname: currentHostname }, response => {
+        if (response.properties.some(p => p.id === propertyId && p.hostname === currentHostname)) {
             ignoreButton.style.backgroundColor = '#ff6b6b';
             ignoreButton.style.color = '#fff';
             card.style.opacity = '0.5';
@@ -93,7 +147,7 @@ function addButtonsToCard(card) {
     favoriteButton.addEventListener('click', () => {
         browserAPI.runtime.sendMessage({
             type: 'TOGGLE_FAVORITE_PROPERTY',
-            propertyInfo: propertyInfo
+            propertyInfo: propertyInfo // propertyInfo now includes hostname
         }, response => {
             if (response.success) {
                 favoriteButton.style.backgroundColor = response.isFavorite ? '#ffd700' : '#f0f0f0';
@@ -104,7 +158,7 @@ function addButtonsToCard(card) {
     ignoreButton.addEventListener('click', () => {
         browserAPI.runtime.sendMessage({
             type: 'TOGGLE_IGNORE_PROPERTY',
-            propertyInfo: propertyInfo
+            propertyInfo: propertyInfo // propertyInfo now includes hostname
         }, response => {
             if (response.success) {
                 ignoreButton.style.backgroundColor = response.isIgnored ? '#ff6b6b' : '#f0f0f0';
@@ -117,77 +171,122 @@ function addButtonsToCard(card) {
 
 // Function to process all property cards
 function processPropertyCards() {
-    // Find all property cards in the scrollable list
-    const cards = document.querySelectorAll('[id^="listing-"], .listing-card');
-    console.log('Found property cards:', cards.length);
+    if (!selectors) return; // Unsupported site
+
+    const cards = document.querySelectorAll(selectors.card);
+    console.log(`Found ${cards.length} property cards on ${currentHostname} using selector: ${selectors.card}`);
     
     cards.forEach(card => {
-        console.log('Processing card:', card);
+        // console.log('Processing card:', card); // Can be too verbose
         addButtonsToCard(card);
     });
 }
 
 // Set up observers for dynamic content
 function setupObservers() {
-    // Observe the scrollable list container
-    const listContainer = document.getElementById('scrollableList');
-    if (!listContainer) {
-        console.log('Scrollable list container not found, will retry...');
-        setTimeout(setupObservers, 1000);
+    if (!selectors) {
+        console.warn('ImobiliarePlus: Selectors not defined for this site. Observer not started.');
         return;
     }
 
-    console.log('Found scrollable list container:', listContainer);
-    console.log('Setting up observer for list container');
-    
-    // Process existing cards
-    processPropertyCards();
+    const setupObserverForContainer = (containerSelector) => {
+        const container = document.querySelector(containerSelector);
+        if (container) {
+            console.log('Found list container:', container, 'with selector:', containerSelector);
 
-    // Set up observer for new cards
-    const observer = new MutationObserver((mutations) => {
-        console.log('Mutation observed:', mutations);
-        mutations.forEach((mutation) => {
-            if (mutation.addedNodes.length) {
-                console.log('New nodes added:', mutation.addedNodes);
-                // Check if any of the added nodes are property cards
-                mutation.addedNodes.forEach(node => {
-                    if (node.nodeType === Node.ELEMENT_NODE) {
-                        if (node.id?.startsWith('listing-') || node.classList?.contains('listing-card')) {
-                            console.log('Found new property card:', node);
-                            addButtonsToCard(node);
-                        }
+            // Process existing cards within this specific container
+            const existingCards = container.querySelectorAll(selectors.card);
+            console.log(`Found ${existingCards.length} existing cards in container ${containerSelector}`);
+            existingCards.forEach(card => addButtonsToCard(card));
+
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.addedNodes.length) {
+                        mutation.addedNodes.forEach(node => {
+                            if (node.nodeType === Node.ELEMENT_NODE) {
+                                if (node.matches && node.matches(selectors.card)) {
+                                    console.log('Found new property card (direct match):', node, 'in', containerSelector);
+                                    addButtonsToCard(node);
+                                } else if (node.querySelectorAll) {
+                                    const newCardsInNode = node.querySelectorAll(selectors.card);
+                                    if (newCardsInNode.length > 0) {
+                                        console.log('Found new property cards (child match):', newCardsInNode, 'in', containerSelector);
+                                        newCardsInNode.forEach(childCard => addButtonsToCard(childCard));
+                                    }
+                                }
+                            }
+                        });
                     }
                 });
-                processPropertyCards();
+            });
+            observer.observe(container, { childList: true, subtree: true });
+            console.log('Observer set up for:', containerSelector);
+            return true; // Observer setup was successful
+        } else {
+            console.log('List container not found with selector:', containerSelector);
+            return false; // Observer setup failed
+        }
+    };
+
+    let observersConfigured = false;
+    if (selectors.listContainerSelectors && Array.isArray(selectors.listContainerSelectors)) {
+        // Handle array of selectors (for Storia.ro)
+        selectors.listContainerSelectors.forEach(selector => {
+            if (setupObserverForContainer(selector)) {
+                observersConfigured = true;
             }
         });
-    });
+        if (!observersConfigured) {
+            console.log('No list containers found for Storia.ro from provided selectors. Retrying...');
+            setTimeout(setupObservers, 3000); // Retry for all selectors if none were found initially
+        }
+    } else if (selectors.listContainer) {
+        // Fallback for single string selector (for Imobiliare.ro)
+        if (setupObserverForContainer(selectors.listContainer)) {
+            observersConfigured = true;
+        } else {
+            console.log(`List container not found with selector "${selectors.listContainer}", will retry...`);
+            setTimeout(setupObservers, 3000); // Retry for the single selector
+        }
+    } else {
+        console.warn('ImobiliarePlus: No list container selector(s) defined for this site. Observer not started.');
+        return;
+    }
+    
+    // Process all cards on the page initially, in case some are outside observed containers or missed.
+    // This is a fallback and might be redundant if observers cover everything.
+    // Consider if this is needed or if initial processing should be per-container.
+    // For now, let's rely on per-container initial processing.
+    // processPropertyCards(); // This might be too broad now.
 
-    observer.observe(listContainer, {
-        childList: true,
-        subtree: true
-    });
-
-    // Also observe the map for changes that might affect the list
-    const mapContainer = document.getElementById('map');
-    if (mapContainer) {
-        console.log('Found map container:', mapContainer);
-        const mapObserver = new MutationObserver(() => {
-            console.log('Map changed, updating cards...');
-            // When map changes, wait a bit for listings to update
-            setTimeout(processPropertyCards, 500);
-        });
-
-        mapObserver.observe(mapContainer, {
-            attributes: true,
-            attributeFilter: ['class', 'style']
-        });
+    // Imobiliare.ro specific map observer
+    if (currentHostname.includes('imobiliare.ro')) {
+        const mapContainer = document.getElementById('map');
+        if (mapContainer) {
+            console.log('Found map container for Imobiliare.ro:', mapContainer);
+            const mapObserver = new MutationObserver(() => {
+                console.log('Map changed on Imobiliare.ro, re-processing cards in observed containers...');
+                // Re-process cards within the already found and observed list container for imobiliare.ro
+                if (selectors.listContainer) {
+                    const imobiliareListContainer = document.querySelector(selectors.listContainer);
+                    if (imobiliareListContainer) {
+                        const cardsInImobiliareContainer = imobiliareListContainer.querySelectorAll(selectors.card);
+                        cardsInImobiliareContainer.forEach(card => addButtonsToCard(card));
+                    }
+                }
+            });
+            mapObserver.observe(mapContainer, { attributes: true, attributeFilter: ['class', 'style'] });
+        }
     }
 }
 
 // Initialize when the page is ready
 function initialize() {
-    console.log('Initializing ImobiliarePlus...');
+    if (!selectors) {
+        console.log(`ImobiliarePlus: Not initializing on unsupported site: ${currentHostname}`);
+        return;
+    }
+    console.log(`Initializing ImobiliarePlus on ${currentHostname}...`);
     setupObservers();
 }
 
@@ -195,16 +294,36 @@ function initialize() {
 initialize();
 
 // Function to update a property card's appearance
-function updateCardAppearance(propertyId, isFavorite, isIgnored) {
-    // Find the card using the numerical ID
-    const card = document.querySelector(`#listing-${propertyId}`);
-    if (!card) {
-        console.log('Card not found for ID:', propertyId);
+function updateCardAppearance(propertyId, isFavorite, isIgnored, hostname) {
+    if (!selectors) return;
+
+    // Try to find the card. This needs to be robust.
+    // Imobiliare.ro uses `id="listing-12345"`
+    // Storia.ro: iterate through cards and match ID from link's href
+    let cardToUpdate = null;
+    if (hostname.includes('imobiliare.ro')) {
+        cardToUpdate = document.querySelector(`#listing-${propertyId}`);
+    } else if (hostname.includes('storia.ro')) {
+        const allCards = document.querySelectorAll(selectors.card);
+        for (const c of allCards) {
+            const linkEl = c.querySelector(selectors.link);
+            if (linkEl && linkEl.href) {
+                const idMatch = linkEl.href.match(selectors.idRegex);
+                if (idMatch && idMatch[1] && idMatch[1].toLowerCase() === propertyId.toLowerCase()) {
+                    cardToUpdate = c;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!cardToUpdate) {
+        console.log(`Card not found for ID: ${propertyId} on hostname: ${hostname}. Card appearance not updated.`);
         return;
     }
 
-    const favoriteButton = card.querySelector('.imobiliare-plus-favorite');
-    const ignoreButton = card.querySelector('.imobiliare-plus-ignore');
+    const favoriteButton = cardToUpdate.querySelector('.imobiliare-plus-favorite');
+    const ignoreButton = cardToUpdate.querySelector('.imobiliare-plus-ignore');
 
     if (favoriteButton) {
         favoriteButton.style.backgroundColor = isFavorite ? '#ffd700' : '#f0f0f0';
@@ -213,7 +332,7 @@ function updateCardAppearance(propertyId, isFavorite, isIgnored) {
     if (ignoreButton) {
         ignoreButton.style.backgroundColor = isIgnored ? '#ff6b6b' : '#f0f0f0';
         ignoreButton.style.color = isIgnored ? '#fff' : '#666';
-        card.style.opacity = isIgnored ? '0.5' : '1';
+        cardToUpdate.style.opacity = isIgnored ? '0.5' : '1';
     }
 }
 
@@ -222,11 +341,16 @@ browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('Message received in content script:', message);
     
     if (message.type === 'PROPERTY_STATE_UPDATED') {
+        // Ensure hostname is passed from where the message originates, or assume current hostname
+        const hostname = message.hostname || currentHostname;
         updateCardAppearance(
             message.propertyId,
             message.isFavorite,
-            message.isIgnored
+            message.isIgnored,
+            hostname 
         );
         sendResponse({ success: true });
     }
+    // Ensure other message types are handled or acknowledged if necessary
+    return true; // Indicates that sendResponse will be called asynchronously
 });
