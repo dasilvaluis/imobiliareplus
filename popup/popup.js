@@ -124,10 +124,6 @@ function sortProperties(properties, sortOption, containerId, isFavorite = false,
     // Sort the properties
     const sortedProperties = [...properties].sort((a, b) => {
         switch(sortOption) {
-            case 'date-desc':
-                return b.timestamp - a.timestamp;
-            case 'date-asc':
-                return a.timestamp - b.timestamp;
             case 'price-asc':
                 const priceA = extractNumericPrice(a.price);
                 const priceB = extractNumericPrice(b.price);
