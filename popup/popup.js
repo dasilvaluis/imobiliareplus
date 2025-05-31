@@ -162,6 +162,17 @@ function extractNumericPrice(priceStr) {
     return Infinity;
 }
 
+// Helper to deduplicate properties by URL (case-insensitive, ignoring trailing slashes)
+function deduplicateProperties(properties) {
+    const seen = new Set();
+    return properties.filter(p => {
+        let url = (p.url || '').toLowerCase().replace(/\/$/, '');
+        if (seen.has(url)) return false;
+        seen.add(url);
+        return true;
+    });
+}
+
 // Function to create a property item element
 function createPropertyItem(property, isFavorite = false, isIgnored = false) {
     const item = document.createElement('div');
@@ -351,18 +362,14 @@ function loadFavoriteProperties(callback = null) {
     
     browserAPI.runtime.sendMessage({ type: 'GET_FAVORITE_PROPERTIES' }, response => {
         if (response && response.properties) {
-            favoriteProperties = response.properties;
+            // Deduplicate by id+hostname
+            favoriteProperties = deduplicateProperties(response.properties);
             applyCurrentFilters(); // Apply filters after loading
         } else {
-            // Handle error or empty state
             favoriteProperties = [];
             displayProperties([], 'favorite-properties', true);
         }
-        
-        // Update badge counts regardless of active tab
         updateAllBadgeCounts();
-        
-        // Call the callback if provided
         if (callback) callback();
     });
 }
@@ -385,24 +392,18 @@ function loadIgnoredProperties(callback = null) {
     
     browserAPI.runtime.sendMessage({ type: 'GET_IGNORED_PROPERTIES' }, response => {
         if (response && response.properties) {
-            ignoredProperties = response.properties;
-            
-            // Only apply filters to active tab
+            // Deduplicate by id+hostname
+            ignoredProperties = deduplicateProperties(response.properties);
             if (document.querySelector('.tab-pane.active').id === 'ignored') {
                 applyCurrentFilters();
             }
         } else {
-            // Handle error or empty state
             ignoredProperties = [];
             if (document.querySelector('.tab-pane.active').id === 'ignored') {
                 displayProperties([], 'ignored-properties', false, true);
             }
         }
-        
-        // Update badge counts regardless of active tab
         updateAllBadgeCounts();
-        
-        // Call the callback if provided
         if (callback) callback();
     });
 }

@@ -32,17 +32,26 @@ window.getPropertySelectors = function() {
             propertyIdAttribute: null
         };
     } else if (currentHostname.includes('storia.ro')) {
+        // Support both regular and companii/agentii URLs
         return {
-            card: 'article[data-cy="listing-item"]',
-            link: 'a[data-cy="listing-item-link"]',
-            price: 'span[data-sentry-component="Price"]',
-            idRegex: /([A-Z0-9]+)$/i,
-            title: 'p[data-cy="listing-item-title"]',
-            thumbnail: (card, propertyId) => card.querySelector('img[data-cy="listing-item-image-source"]')?.src,
+            card: 'article[data-sentry-element="Wrapper"][data-sentry-component="AdvertCard"], article[data-cy="listing-item"]',
+            link: 'a[href^="/ro/oferta/"]',
+            price: 'span[data-sentry-component="Price"], span.css-2bt9f1',
+            idRegex: /\/ro\/oferta\/([\w-]+)/i,
+            title: 'p[data-cy="listing-item-title"], p.css-u3orbr',
+            thumbnail: (card, propertyId) => {
+                // Try storia.ro classic
+                let img = card.querySelector('img[data-cy="listing-item-image-source"]');
+                if (img) return img.src;
+                // Try companii/agentii
+                img = card.querySelector('img');
+                return img ? img.src : '';
+            },
             listContainerSelectors: [
                 'div[data-cy="search.listing.promoted"] ul',
                 'div[data-cy="search.listing.organic"] ul',
-                'div[data-cy="search.map.listing.organic"] ul'
+                'div[data-cy="search.map.listing.organic"] ul',
+                'ul.css-yd8sa2' // companii/agentii listing container
             ],
             propertyIdAttribute: null
         };
