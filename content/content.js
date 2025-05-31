@@ -81,9 +81,13 @@ function getPropertySelectors() {
 const selectors = getPropertySelectors();
 
 // Function to create favorite and ignore buttons
-function createPropertyButtons(propertyInfo, siteType) {
-    // siteType is not used for now, but can be used for site-specific styling tweaks later
+function setButtonState({button, active, activeStyles, inactiveStyles}) {
+    Object.assign(button.style, active ? activeStyles : inactiveStyles);
+    if (active) button.classList.add('active');
+    else button.classList.remove('active');
+}
 
+function createPropertyButtons(propertyInfo, siteType, card) {
     const buttonsContainer = document.createElement('div');
     buttonsContainer.className = 'imobiliare-plus-buttons';
     buttonsContainer.style.cssText = `
@@ -95,52 +99,53 @@ function createPropertyButtons(propertyInfo, siteType) {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     `;
 
+    // Button style configs
+    const favoriteActive = {backgroundColor: '#3e8b9c', color: '#fff', border: '1px solid #3e8b9c'};
+    const favoriteInactive = {backgroundColor: 'white', color: '#42758C', border: '1px solid #e0e0e0'};
+    const ignoreActive = {backgroundColor: '#1e2839', color: '#fff', border: '1px solid #1e2839'};
+    const ignoreInactive = {backgroundColor: 'white', color: '#1e2839', border: '1px solid #e0e0e0'};
+
     // Favorite button
     const favoriteButton = document.createElement('button');
     favoriteButton.className = 'imobiliare-plus-favorite';
     favoriteButton.innerHTML = '<span class="icon">★</span> <span class="text">Favorite</span>';
-    favoriteButton.style.cssText = `
-        flex: 1;
-        padding: 8px 12px;
-        border: 1px solid #e0e0e0;
-        border-radius: 20px;
-        cursor: pointer;
-        background-color: white;
-        color: #42758C;
-        font-weight: 500;
-        font-size: 13px;
-        transition: all 0.2s ease;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        outline: none;
-    `;
+    Object.assign(favoriteButton.style, favoriteInactive, {
+        flex: 1,
+        padding: '8px 12px',
+        borderRadius: '20px',
+        cursor: 'pointer',
+        fontWeight: 500,
+        fontSize: '13px',
+        transition: 'all 0.2s ease',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '6px',
+        outline: 'none'
+    });
+
     // Ignore button
     const ignoreButton = document.createElement('button');
     ignoreButton.className = 'imobiliare-plus-ignore';
     ignoreButton.innerHTML = '<span class="icon">✕</span> <span class="text">Hide</span>';
-    ignoreButton.style.cssText = `
-        flex: 1;
-        padding: 8px 12px;
-        border: 1px solid #e0e0e0;
-        border-radius: 20px;
-        cursor: pointer;
-        background-color: white;
-        color: #1e2839;
-        font-weight: 500;
-        font-size: 13px;
-        transition: all 0.2s ease;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        outline: none;
-    `;
+    Object.assign(ignoreButton.style, ignoreInactive, {
+        flex: 1,
+        padding: '8px 12px',
+        borderRadius: '20px',
+        cursor: 'pointer',
+        fontWeight: 500,
+        fontSize: '13px',
+        transition: 'all 0.2s ease',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '6px',
+        outline: 'none'
+    });
 
-    // Favorite button hover
+    // Hover handlers
     favoriteButton.addEventListener('mouseover', () => {
         if (!favoriteButton.classList.contains('active')) {
             favoriteButton.style.backgroundColor = '#f0f7f9';
@@ -149,12 +154,9 @@ function createPropertyButtons(propertyInfo, siteType) {
     });
     favoriteButton.addEventListener('mouseout', () => {
         if (!favoriteButton.classList.contains('active')) {
-            favoriteButton.style.backgroundColor = 'white';
-            favoriteButton.style.borderColor = '#e0e0e0';
+            Object.assign(favoriteButton.style, favoriteInactive);
         }
     });
-
-    // Hide button hover
     ignoreButton.addEventListener('mouseover', () => {
         if (!ignoreButton.classList.contains('active')) {
             ignoreButton.style.backgroundColor = '#f5f6f8';
@@ -163,8 +165,7 @@ function createPropertyButtons(propertyInfo, siteType) {
     });
     ignoreButton.addEventListener('mouseout', () => {
         if (!ignoreButton.classList.contains('active')) {
-            ignoreButton.style.backgroundColor = 'white';
-            ignoreButton.style.borderColor = '#e0e0e0';
+            Object.assign(ignoreButton.style, ignoreInactive);
         }
     });
 
@@ -172,100 +173,54 @@ function createPropertyButtons(propertyInfo, siteType) {
     buttonsContainer.appendChild(favoriteButton);
     buttonsContainer.appendChild(ignoreButton);
 
-    // Check if property is already favorite/ignored
+    // Set initial state
     browserAPI.runtime.sendMessage({ type: 'GET_FAVORITE_PROPERTIES', hostname: propertyInfo.hostname }, response => {
-        if (response.properties.some(p => p.id === propertyInfo.id && p.hostname === propertyInfo.hostname)) {
-            favoriteButton.style.backgroundColor = '#ffebb3';
-            favoriteButton.style.color = '#b18000';
-            favoriteButton.style.boxShadow = 'inset 0 1px 3px rgba(0,0,0,0.1)';
-            favoriteButton.classList.add('active');
-            favoriteButton.querySelector('.icon').textContent = '★';  // Filled star
-        }
+        const isFav = response.properties.some(p => p.id === propertyInfo.id && p.hostname === propertyInfo.hostname);
+        setButtonState({button: favoriteButton, active: isFav, activeStyles: favoriteActive, inactiveStyles: favoriteInactive});
+        favoriteButton.querySelector('.icon').textContent = '★';
     });
-
     browserAPI.runtime.sendMessage({ type: 'GET_IGNORED_PROPERTIES', hostname: propertyInfo.hostname }, response => {
-        if (response.properties.some(p => p.id === propertyInfo.id && p.hostname === propertyInfo.hostname)) {
-            ignoreButton.style.backgroundColor = '#ffdbdb';
-            ignoreButton.style.color = '#d32f2f';
-            ignoreButton.style.boxShadow = 'inset 0 1px 3px rgba(0,0,0,0.1)';
-            ignoreButton.classList.add('active');
-            // Assuming the card is the parent of buttonsContainer. This might need adjustment if card is not directly accessible here.
-            // For now, this direct styling of the card is removed as createPropertyButtons should only be responsible for buttons.
-            // The card styling will be handled in addButtonsToCard after appending the buttons.
-            // card.style.opacity = '0.6';
-        }
+        const isIgnored = response.properties.some(p => p.id === propertyInfo.id && p.hostname === propertyInfo.hostname);
+        setButtonState({button: ignoreButton, active: isIgnored, activeStyles: ignoreActive, inactiveStyles: ignoreInactive});
+        if (card) card.style.opacity = isIgnored ? '0.6' : '1';
     });
 
-    // Update the click handlers to include smooth transitions:
+    // Click handlers
     favoriteButton.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-        
         favoriteButton.style.transform = 'scale(0.95)';
         setTimeout(() => { favoriteButton.style.transform = 'scale(1)'; }, 100);
-        
         browserAPI.runtime.sendMessage({
             type: 'TOGGLE_FAVORITE_PROPERTY',
-            propertyInfo: propertyInfo
+            propertyInfo
         }, response => {
-            if (response.success) {
-                if (response.isFavorite) {
-                    favoriteButton.style.backgroundColor = '#3e8b9c';
-                    favoriteButton.style.color = '#ffffff';
-                    favoriteButton.style.border = '1px solidrgb(35, 255, 35)';
-                    favoriteButton.style.boxShadow = '0 1px 3px rgba(0,0,0,0.12)';
-                    favoriteButton.classList.add('active');
-                    favoriteButton.querySelector('.icon').textContent = '★';  // Filled star
-                } else {
-                    favoriteButton.style.backgroundColor = '#f8f8f8';
-                    favoriteButton.style.color = '#333';
-                    favoriteButton.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
-                    favoriteButton.classList.remove('active');
-                    favoriteButton.querySelector('.icon').textContent = '★';  // Empty star
-                }
-            }
+            setButtonState({
+                button: favoriteButton,
+                active: response.isFavorite,
+                activeStyles: favoriteActive,
+                inactiveStyles: favoriteInactive
+            });
+            favoriteButton.querySelector('.icon').textContent = '★';
         });
     });
 
     ignoreButton.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-        
         ignoreButton.style.transform = 'scale(0.95)';
         setTimeout(() => { ignoreButton.style.transform = 'scale(1)'; }, 100);
-        
         browserAPI.runtime.sendMessage({
             type: 'TOGGLE_IGNORE_PROPERTY',
-            propertyInfo: propertyInfo
+            propertyInfo
         }, response => {
-            if (response.success) {
-                // The card opacity update needs to happen in addButtonsToCard,
-                // as createPropertyButtons doesn't have direct access to the 'card' element.
-                // We can pass a callback or handle it in the caller.
-                // For now, let's assume the caller (addButtonsToCard) will handle card opacity.
-                if (response.isIgnored) {
-                    ignoreButton.style.backgroundColor = '#1e2839';
-                    ignoreButton.style.color = '#ffffff';
-                    ignoreButton.style.border = '1px solid #1e2839';
-                    ignoreButton.style.boxShadow = '0 1px 3px rgba(0,0,0,0.12)';
-                    ignoreButton.classList.add('active');
-                } else {
-                    ignoreButton.style.backgroundColor = '#f8f8f8';
-                    ignoreButton.style.color = '#555';
-                    ignoreButton.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
-                    ignoreButton.classList.remove('active');
-                }
-                 // Update card opacity based on ignore state in addButtonsToCard
-                const card = buttonsContainer.closest(selectors.card); // Try to find the card
-                if (card) {
-                    if (response.isIgnored) {
-                        card.style.opacity = '0.6';
-                        card.style.transition = 'opacity 0.3s ease';
-                    } else {
-                        card.style.opacity = '1';
-                    }
-                }
-            }
+            setButtonState({
+                button: ignoreButton,
+                active: response.isIgnored,
+                activeStyles: ignoreActive,
+                inactiveStyles: ignoreInactive
+            });
+            if (card) card.style.opacity = response.isIgnored ? '0.6' : '1';
         });
     });
 
@@ -342,15 +297,8 @@ function addButtonsToCard(card) {
 
     console.log('Found property:', propertyInfo);
 
-    const buttonsContainer = createPropertyButtons(propertyInfo, currentHostname);
+    const buttonsContainer = createPropertyButtons(propertyInfo, currentHostname, card);
     card.appendChild(buttonsContainer);
-
-    // Initial card styling based on ignored status (since this part was moved from createPropertyButtons)
-    browserAPI.runtime.sendMessage({ type: 'GET_IGNORED_PROPERTIES', hostname: propertyInfo.hostname }, response => {
-        if (response.properties.some(p => p.id === propertyInfo.id && p.hostname === propertyInfo.hostname)) {
-            card.style.opacity = '0.6';
-        }
-    });
 }
 
 // Function to process all property cards
@@ -438,12 +386,6 @@ function setupObservers() {
         return;
     }
     
-    // Process all cards on the page initially, in case some are outside observed containers or missed.
-    // This is a fallback and might be redundant if observers cover everything.
-    // Consider if this is needed or if initial processing should be per-container.
-    // For now, let's rely on per-container initial processing.
-    // processPropertyCards(); // This might be too broad now.
-
     // Imobiliare.ro specific map observer
     if (currentHostname.includes('imobiliare.ro')) {
         const mapContainer = document.getElementById('map');
@@ -480,217 +422,144 @@ function initialize() {
     addButtonsToDetailPage();
 }
 
-// Function to determine which detail page function to call
-function addButtonsToDetailPage() {
-    // Different handling based on the site
-    if (currentHostname.includes('imobiliare.ro')) {
-        // Check if we're on a property detail page
-        if (window.location.href.includes('/oferta/')) {
-            addButtonsToImobiliareDetailPage();
-        }
-    } else if (currentHostname.includes('storia.ro')) {
-        // Check if we're on a property detail page (Storia uses a different URL pattern)
-        if (window.location.pathname.match(/\/ro\/oferta\/[\w-]+\/[\w-]+/)) {
-            addButtonsToStoriaDetailPage();
-        }
-    }
+// --- Helper functions for property detail extraction ---
+function getImobiliareDetailPageId() {
+    // Extracts property ID from Imobiliare.ro detail page URL
+    const urlMatch = window.location.href.match(/([A-Z0-9]+)$/i);
+    return urlMatch ? urlMatch[1] : null;
 }
 
-// Function to add buttons to Imobiliare.ro detail page
-function addButtonsToImobiliareDetailPage() {
-    console.log('Attempting to add buttons to Imobiliare.ro detail page');
+function getImobiliareDetailPageTitle() {
+    return (
+        document.querySelector('h1.titlu-anunt')?.textContent.trim() ||
+        document.querySelector('meta[property="og:title"]')?.content ||
+        'N/A'
+    );
+}
 
-    // 1. Extract Property ID
-    const urlMatch = window.location.href.match(/([A-Z0-9]+)$/i); // Matches trailing alphanumeric ID, typical for Imobiliare.ro
-    const propertyId = urlMatch ? urlMatch[1] : null;
-
-    if (!propertyId) {
-        console.error('ImobiliarePlus: Could not extract Property ID from URL:', window.location.href);
-        return;
-    }
-    console.log('Extracted Property ID:', propertyId);
-
-    // 2. Extract Property Title
-    let propertyTitle = document.querySelector('h1.titlu-anunt')?.textContent.trim();
-    if (!propertyTitle) {
-        propertyTitle = document.querySelector('meta[property="og:title"]')?.content || 'N/A';
-    }
-    console.log('Extracted Property Title:', propertyTitle);
-
-    // 3. Extract Property Price
-    let propertyPrice = 'N/A';
+function getImobiliareDetailPagePrice() {
     const priceElement = document.querySelector('span[aria-label="price"]');
-    if (priceElement) {
-        let rawPrice = priceElement.textContent.trim();
-        // Clean the price: remove currency symbols, thousands separators, and keep decimal separators.
-        // This regex aims to remove common currency symbols and non-numeric characters,
-        // except for digits, comma, and dot.
-        propertyPrice = rawPrice.replace(/[€RON\s]/g, '').replace(/\.(?=\d{3})/g, ''); // Remove thousands dots
-        // propertyPrice = rawPrice.replace(/[^0-9.,]/g, ''); // Basic cleaning: keep digits, comma, dot
-        // If a comma is used as a decimal separator, it might need to be converted to a dot
-        // depending on desired format, but for display, original format is often fine.
-        // For now, we'll keep it as a string with potential comma/dot.
-    }
-    console.log('Extracted Property Price:', propertyPrice);
-
-    // 4. Construct propertyInfo object
-    const propertyInfo = {
-        id: propertyId,
-        title: propertyTitle,
-        url: window.location.href,
-        thumbnail: document.querySelector('meta[property="og:image"]')?.content || '', // Attempt to get thumbnail from meta tag
-        hostname: currentHostname,
-        price: propertyPrice
-    };
-
-    // 5. Locate Target Element
-    const targetElement = document.querySelector('div.agent-contact-enquiry.mt-0');
-    if (!targetElement) {
-        console.error('ImobiliarePlus: Target element for buttons not found on detail page.');
-        return;
-    }
-
-    // 6. Check if Buttons Already Exist
-    if (targetElement.querySelector('.imobiliare-plus-buttons-detail-page')) {
-        console.log('ImobiliarePlus: Buttons already exist on detail page.');
-        return;
-    }
-
-    // 7. Create and Append Buttons
-    const buttonsContainer = createPropertyButtons(propertyInfo, 'imobiliare');
-    buttonsContainer.classList.add('imobiliare-plus-buttons-detail-page');
-
-    // Apply specific styles for detail page
-    buttonsContainer.style.marginTop = '15px';
-    buttonsContainer.style.marginBottom = '15px';
-    buttonsContainer.style.padding = '0'; // Remove card padding
-
-    // Adjust button styles for detail page if needed (example: making them a bit smaller)
-    const detailPageButtons = buttonsContainer.querySelectorAll('button');
-    detailPageButtons.forEach(button => {
-        button.style.padding = '6px 10px';
-        button.style.fontSize = '12px';
-    });
-
-    targetElement.appendChild(buttonsContainer);
-    console.log('ImobiliarePlus: Buttons added to detail page.', propertyInfo);
+    if (!priceElement) return 'N/A';
+    let rawPrice = priceElement.textContent.trim();
+    return rawPrice.replace(/[€RON\s]/g, '').replace(/\.(?=\d{3})/g, '');
 }
 
-// Function to add buttons to Storia.ro detail page
-function addButtonsToStoriaDetailPage() {
-    console.log('Attempting to add buttons to Storia.ro detail page');
+function getImobiliareDetailPageThumbnail() {
+    return document.querySelector('meta[property="og:image"]')?.content || '';
+}
 
-    // 1. Extract Property ID
-    const pathMatch = window.location.pathname.match(/\/ro\/oferta\/[\w-]+\/([\w-]+)/);
-    const propertyId = pathMatch ? pathMatch[1] : null;
+function getStoriaDetailPageId() {
+    const match = window.location.pathname.match(/\/ro\/oferta\/([\w-]+)/);
+    return match ? match[1] : null;
+}
 
-    if (!propertyId) {
-        console.error('ImobiliarePlus: Could not extract Property ID from URL path:', window.location.pathname);
-        return;
-    }
-    console.log('Extracted Property ID:', propertyId);
+function getStoriaDetailPageTitle() {
+    return (
+        document.querySelector('h1[data-cy="adPage__title"]')?.textContent.trim() ||
+        document.querySelector('meta[property="og:title"]')?.content ||
+        'N/A'
+    );
+}
 
-    // 2. Extract Property Title
-    let propertyTitle = document.querySelector('h1[data-cy="adPage__title"]')?.textContent.trim();
-    if (!propertyTitle) {
-        propertyTitle = document.querySelector('meta[property="og:title"]')?.content || 'N/A';
-    }
-    console.log('Extracted Property Title:', propertyTitle);
-
-    // 3. Extract Property Price (New Logic)
-    let propertyPrice = 'N/A'; // Default value
+function getStoriaDetailPagePrice() {
     const priceElement = document.querySelector('strong[data-cy="adPageHeaderPrice"]');
-    if (priceElement) {
-        let rawPrice = priceElement.textContent.trim();
-        // Cleaning: remove currency symbols (€), whitespace, and thousand separators (dots)
-        propertyPrice = rawPrice.replace(/[€\s]/g, '').replace(/\.(?=\d{3})/g, '');
-    }
-    console.log('Extracted Property Price:', propertyPrice);
-
-    // 4. Construct propertyInfo object
-    const propertyInfo = {
-        id: propertyId,
-        title: propertyTitle,
-        url: window.location.href,
-        thumbnail: document.querySelector('meta[property="og:image"]')?.content || '',
-        hostname: currentHostname,
-        price: propertyPrice
-    };
-
-    // 5. Locate Target Element (Updated)
-    const targetElement = document.querySelector('div[data-sentry-element="ActionButtonsContainer"]');
-    if (!targetElement) {
-        console.error('ImobiliarePlus: Target element "ActionButtonsContainer" not found on Storia detail page.');
-        return;
-    }
-
-    // 6. Check if Buttons Already Exist
-    const buttonClassName = 'storia-plus-buttons-detail-page';
-    if (targetElement.querySelector('.' + buttonClassName)) {
-        console.log('ImobiliarePlus: Buttons already exist in ActionButtonsContainer on Storia detail page.');
-        return;
-    }
-
-    // 7. Create and Append Buttons
-    const buttonsContainer = createPropertyButtons(propertyInfo, 'storia');
-    buttonsContainer.classList.add(buttonClassName);
-    // buttonsContainer.classList.add('imobiliare-plus-buttons-detail-page'); // Keep if generic styles are useful
-
-    // Styling Adjustments for new location in ActionButtonsContainer
-    buttonsContainer.style.display = 'inline-flex'; // Align with other buttons if they are inline
-    buttonsContainer.style.marginLeft = '8px'; // Space from existing buttons (Storia uses 8px gaps)
-    buttonsContainer.style.gap = '8px'; // Gap between our two buttons
-    buttonsContainer.style.marginTop = '0'; // Remove previous marginTop
-    buttonsContainer.style.marginBottom = '0'; // Remove previous marginBottom
-    buttonsContainer.style.padding = '0'; // Remove previous padding
-    buttonsContainer.style.width = 'auto'; // Don't take full width
-
-    const detailPageButtons = buttonsContainer.querySelectorAll('button');
-    detailPageButtons.forEach(button => {
-        button.style.backgroundColor = 'transparent';
-        button.style.border = '1px solid #e0e0e0'; // A light border to match Storia's secondary buttons
-        button.style.boxShadow = 'none';
-        button.style.color = '#007882'; // Storia's typical action text color
-        button.style.padding = '8px 12px'; // Adjust padding to match Storia's buttons
-        button.style.flex = '0 1 auto'; // Don't grow, allow shrink, basis auto
-        button.style.width = 'auto';
-        // Reset hover effects to be less intrusive or match Storia's
-        button.addEventListener('mouseover', () => {
-            if (!button.classList.contains('active')) {
-                button.style.backgroundColor = '#f0f7f9'; // Light background on hover
-                button.style.borderColor = '#007882';
-            }
-        });
-        button.addEventListener('mouseout', () => {
-            if (!button.classList.contains('active')) {
-                button.style.backgroundColor = 'transparent';
-                button.style.borderColor = '#e0e0e0';
-            }
-        });
-    });
-
-    // Update active state styling to be consistent
-    const favoriteButton = buttonsContainer.querySelector('.imobiliare-plus-favorite');
-    const ignoreButton = buttonsContainer.querySelector('.imobiliare-plus-ignore');
-
-    // Re-apply active styles if needed, considering the new transparent look
-    if (favoriteButton.classList.contains('active')) {
-        favoriteButton.style.backgroundColor = '#007882'; // Active color
-        favoriteButton.style.color = '#ffffff';
-        favoriteButton.style.borderColor = '#007882';
-    }
-    if (ignoreButton.classList.contains('active')) {
-        ignoreButton.style.backgroundColor = '#1e2839'; // Active color (can be adjusted)
-        ignoreButton.style.color = '#ffffff';
-        ignoreButton.style.borderColor = '#1e2839';
-    }
-
-
-    // Append to the ActionButtonsContainer
-    targetElement.appendChild(buttonsContainer);
-    console.log('ImobiliarePlus: Buttons added to ActionButtonsContainer on Storia detail page.', propertyInfo);
+    if (!priceElement) return 'N/A';
+    let rawPrice = priceElement.textContent.trim();
+    return rawPrice;
 }
 
+function getStoriaDetailPageThumbnail() {
+    return document.querySelector('meta[property="og:image"]')?.content || '';
+}
+
+// --- Unified function to add buttons to detail pages ---
+
+function addButtonsToDetailPage() {
+    if (currentHostname.includes('imobiliare.ro')) {
+        const propertyId = getImobiliareDetailPageId();
+        if (!propertyId) return;
+        const propertyInfo = {
+            id: propertyId,
+            title: getImobiliareDetailPageTitle(),
+            url: window.location.href,
+            thumbnail: getImobiliareDetailPageThumbnail(),
+            hostname: currentHostname,
+            price: getImobiliareDetailPagePrice()
+        };
+        const targetElement = document.querySelector('div.agent-contact-enquiry.mt-0');
+        if (!targetElement) return;
+        if (targetElement.querySelector('.imobiliare-plus-buttons-detail-page')) return;
+        const buttonsContainer = createPropertyButtons(propertyInfo, 'imobiliare');
+        buttonsContainer.classList.add('imobiliare-plus-buttons-detail-page');
+        buttonsContainer.style.marginTop = '15px';
+        buttonsContainer.style.marginBottom = '15px';
+        buttonsContainer.style.padding = '0';
+        buttonsContainer.querySelectorAll('button').forEach(button => {
+            button.style.padding = '6px 10px';
+            button.style.fontSize = '12px';
+        });
+        targetElement.appendChild(buttonsContainer);
+    } else if (currentHostname.includes('storia.ro')) {
+        const propertyId = getStoriaDetailPageId();
+        if (!propertyId) return;
+        const propertyInfo = {
+            id: propertyId,
+            title: getStoriaDetailPageTitle(),
+            url: window.location.href,
+            thumbnail: getStoriaDetailPageThumbnail(),
+            hostname: currentHostname,
+            price: getStoriaDetailPagePrice()
+        };
+        const targetElement = document.querySelector('div[data-sentry-element="ActionButtonsContainer"]');
+        if (!targetElement) return;
+        const buttonClassName = 'storia-plus-buttons-detail-page';
+        if (targetElement.querySelector('.' + buttonClassName)) return;
+        const buttonsContainer = createPropertyButtons(propertyInfo, 'storia');
+        buttonsContainer.classList.add(buttonClassName);
+        buttonsContainer.style.display = 'inline-flex';
+        buttonsContainer.style.marginLeft = '8px';
+        buttonsContainer.style.gap = '8px';
+        buttonsContainer.style.marginTop = '0';
+        buttonsContainer.style.marginBottom = '0';
+        buttonsContainer.style.padding = '0';
+        buttonsContainer.style.width = 'auto';
+        buttonsContainer.querySelectorAll('button').forEach(button => {
+            button.style.backgroundColor = 'transparent';
+            button.style.border = '1px solid #e0e0e0';
+            button.style.boxShadow = 'none';
+            button.style.color = '#007882';
+            button.style.padding = '8px 12px';
+            button.style.flex = '0 1 auto';
+            button.style.width = 'auto';
+            button.addEventListener('mouseover', () => {
+                if (!button.classList.contains('active')) {
+                    button.style.backgroundColor = '#f0f7f9';
+                    button.style.borderColor = '#007882';
+                }
+            });
+            button.addEventListener('mouseout', () => {
+                if (!button.classList.contains('active')) {
+                    button.style.backgroundColor = 'transparent';
+                    button.style.borderColor = '#e0e0e0';
+                }
+            });
+        });
+        // Active state styling
+        const favoriteButton = buttonsContainer.querySelector('.imobiliare-plus-favorite');
+        const ignoreButton = buttonsContainer.querySelector('.imobiliare-plus-ignore');
+        if (favoriteButton?.classList.contains('active')) {
+            favoriteButton.style.backgroundColor = '#007882';
+            favoriteButton.style.color = '#ffffff';
+            favoriteButton.style.borderColor = '#007882';
+        }
+        if (ignoreButton?.classList.contains('active')) {
+            ignoreButton.style.backgroundColor = '#1e2839';
+            ignoreButton.style.color = '#ffffff';
+            ignoreButton.style.borderColor = '#1e2839';
+        }
+        targetElement.appendChild(buttonsContainer);
+    }
+}
 
 let lastUrl = location.href;
 const urlObserver = new MutationObserver(() => {
