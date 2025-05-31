@@ -518,20 +518,18 @@ function addButtonsToImobiliareDetailPage() {
     console.log('Extracted Property Title:', propertyTitle);
 
     // 3. Extract Property Price
-    // Imobiliare.ro detail pages often have price in a div like <div class="pret first blue"><strong>123.456 €</strong></div>
-    // Or within a specific structure like <div class="col-lg-7 col-md-12 coloana-left-detalii"> ... <div class="pret">
-    let propertyPrice = '';
-    const priceElement = document.querySelector('div.pret.first.blue strong'); // More specific selector
+    let propertyPrice = 'N/A';
+    const priceElement = document.querySelector('span[aria-label="price"]');
     if (priceElement) {
-        propertyPrice = priceElement.textContent.trim();
-    } else {
-        // Fallback to a less specific selector if the primary one fails
-        const generalPriceElement = document.querySelector('.pret strong');
-        if (generalPriceElement) {
-            propertyPrice = generalPriceElement.textContent.trim();
-        } else {
-            propertyPrice = 'N/A';
-        }
+        let rawPrice = priceElement.textContent.trim();
+        // Clean the price: remove currency symbols, thousands separators, and keep decimal separators.
+        // This regex aims to remove common currency symbols and non-numeric characters,
+        // except for digits, comma, and dot.
+        propertyPrice = rawPrice.replace(/[€RON\s]/g, '').replace(/\.(?=\d{3})/g, ''); // Remove thousands dots
+        // propertyPrice = rawPrice.replace(/[^0-9.,]/g, ''); // Basic cleaning: keep digits, comma, dot
+        // If a comma is used as a decimal separator, it might need to be converted to a dot
+        // depending on desired format, but for display, original format is often fine.
+        // For now, we'll keep it as a string with potential comma/dot.
     }
     console.log('Extracted Property Price:', propertyPrice);
 
@@ -599,20 +597,13 @@ function addButtonsToStoriaDetailPage() {
     }
     console.log('Extracted Property Title:', propertyTitle);
 
-    // 3. Extract Property Price
-    let propertyPrice = document.querySelector('[data-cy="adPage__content__price_value"]')?.textContent.trim();
-    if (!propertyPrice) {
-        // Fallback for Storia price, structure might vary
-        const priceElement = document.querySelector('[data-testid="ad-price-container"] .css-12vqlj3'); // Example from a potential structure
-        if (priceElement) {
-            propertyPrice = priceElement.textContent.trim();
-        } else {
-            propertyPrice = 'N/A';
-        }
-    }
-    // Clean price (remove non-numeric characters except comma/dot for decimals, then normalize)
-    if (propertyPrice !== 'N/A') {
-        propertyPrice = propertyPrice.replace(/[^0-9.,€]/g, "").replace(',', '.');
+    // 3. Extract Property Price (New Logic)
+    let propertyPrice = 'N/A'; // Default value
+    const priceElement = document.querySelector('strong[data-cy="adPageHeaderPrice"]');
+    if (priceElement) {
+        let rawPrice = priceElement.textContent.trim();
+        // Cleaning: remove currency symbols (€), whitespace, and thousand separators (dots)
+        propertyPrice = rawPrice.replace(/[€\s]/g, '').replace(/\.(?=\d{3})/g, '');
     }
     console.log('Extracted Property Price:', propertyPrice);
 
@@ -626,42 +617,78 @@ function addButtonsToStoriaDetailPage() {
         price: propertyPrice
     };
 
-    // 5. Locate Target Element
-    const targetElement = document.querySelector('div[data-sentry-element="AsideContent"]');
+    // 5. Locate Target Element (Updated)
+    const targetElement = document.querySelector('div[data-sentry-element="ActionButtonsContainer"]');
     if (!targetElement) {
-        console.error('ImobiliarePlus: Target element for buttons not found on Storia detail page.');
+        console.error('ImobiliarePlus: Target element "ActionButtonsContainer" not found on Storia detail page.');
         return;
     }
 
     // 6. Check if Buttons Already Exist
     const buttonClassName = 'storia-plus-buttons-detail-page';
     if (targetElement.querySelector('.' + buttonClassName)) {
-        console.log('ImobiliarePlus: Buttons already exist on Storia detail page.');
+        console.log('ImobiliarePlus: Buttons already exist in ActionButtonsContainer on Storia detail page.');
         return;
     }
 
     // 7. Create and Append Buttons
     const buttonsContainer = createPropertyButtons(propertyInfo, 'storia');
     buttonsContainer.classList.add(buttonClassName);
-    buttonsContainer.classList.add('imobiliare-plus-buttons-detail-page'); // Also add generic detail page class if common styling applies
+    // buttonsContainer.classList.add('imobiliare-plus-buttons-detail-page'); // Keep if generic styles are useful
 
-    // Apply specific styles for Storia detail page
-    buttonsContainer.style.marginTop = '15px';
-    buttonsContainer.style.marginBottom = '15px';
-    buttonsContainer.style.padding = '10px'; // Add some padding around the buttons
-    buttonsContainer.style.width = '100%'; // Ensure it takes full width of sidebar
+    // Styling Adjustments for new location in ActionButtonsContainer
+    buttonsContainer.style.display = 'inline-flex'; // Align with other buttons if they are inline
+    buttonsContainer.style.marginLeft = '8px'; // Space from existing buttons (Storia uses 8px gaps)
+    buttonsContainer.style.gap = '8px'; // Gap between our two buttons
+    buttonsContainer.style.marginTop = '0'; // Remove previous marginTop
+    buttonsContainer.style.marginBottom = '0'; // Remove previous marginBottom
+    buttonsContainer.style.padding = '0'; // Remove previous padding
+    buttonsContainer.style.width = 'auto'; // Don't take full width
 
-    // Adjust individual button styles if needed (e.g., ensure they stack or align well)
     const detailPageButtons = buttonsContainer.querySelectorAll('button');
     detailPageButtons.forEach(button => {
-        button.style.flexBasis = '100%'; // Make buttons take full width if they are in a flex column
+        button.style.backgroundColor = 'transparent';
+        button.style.border = '1px solid #e0e0e0'; // A light border to match Storia's secondary buttons
+        button.style.boxShadow = 'none';
+        button.style.color = '#007882'; // Storia's typical action text color
+        button.style.padding = '8px 12px'; // Adjust padding to match Storia's buttons
+        button.style.flex = '0 1 auto'; // Don't grow, allow shrink, basis auto
+        button.style.width = 'auto';
+        // Reset hover effects to be less intrusive or match Storia's
+        button.addEventListener('mouseover', () => {
+            if (!button.classList.contains('active')) {
+                button.style.backgroundColor = '#f0f7f9'; // Light background on hover
+                button.style.borderColor = '#007882';
+            }
+        });
+        button.addEventListener('mouseout', () => {
+            if (!button.classList.contains('active')) {
+                button.style.backgroundColor = 'transparent';
+                button.style.borderColor = '#e0e0e0';
+            }
+        });
     });
-    // If buttonsContainer is already flex row, this might not be needed or flex-direction should be column
-    // buttonsContainer.style.flexDirection = 'column'; // If buttons should stack vertically
 
-    // Insert before the first child, which is often the contact form or similar content
-    targetElement.insertBefore(buttonsContainer, targetElement.firstChild);
-    console.log('ImobiliarePlus: Buttons added to Storia detail page.', propertyInfo);
+    // Update active state styling to be consistent
+    const favoriteButton = buttonsContainer.querySelector('.imobiliare-plus-favorite');
+    const ignoreButton = buttonsContainer.querySelector('.imobiliare-plus-ignore');
+
+    // Re-apply active styles if needed, considering the new transparent look
+    if (favoriteButton.classList.contains('active')) {
+        favoriteButton.style.backgroundColor = '#007882'; // Active color
+        favoriteButton.style.color = '#ffffff';
+        favoriteButton.style.borderColor = '#007882';
+    }
+    if (ignoreButton.classList.contains('active')) {
+        ignoreButton.style.backgroundColor = '#1e2839'; // Active color (can be adjusted)
+        ignoreButton.style.color = '#ffffff';
+        ignoreButton.style.borderColor = '#1e2839';
+    }
+
+
+    // Append to the ActionButtonsContainer
+    targetElement.appendChild(buttonsContainer);
+    console.log('ImobiliarePlus: Buttons added to ActionButtonsContainer on Storia detail page.', propertyInfo);
 }
 
 
