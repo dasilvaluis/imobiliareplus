@@ -34,7 +34,7 @@ window.getPropertySelectors = function() {
     } else if (currentHostname.includes('storia.ro')) {
         // Support both regular and companii/agentii URLs
         return {
-            card: 'article[data-sentry-element="Wrapper"][data-sentry-component="AdvertCard"], article[data-cy="listing-item"]',
+            card: 'article[data-sentry-element="Wrapper"][data-sentry-component="AdvertCard"], article[data-cy="listing-item"], article[data-sentry-component="UnitCard"]',
             link: 'a[href^="/ro/oferta/"]',
             price: 'span[data-sentry-component="Price"], span.css-2bt9f1',
             idRegex: /\/ro\/oferta\/([\w-]+)/i,
@@ -43,7 +43,7 @@ window.getPropertySelectors = function() {
                 // Try storia.ro classic
                 let img = card.querySelector('img[data-cy="listing-item-image-source"]');
                 if (img) return img.src;
-                // Try companii/agentii
+                // Try companii/agentii or ansamblu/unit
                 img = card.querySelector('img');
                 return img ? img.src : '';
             },
@@ -51,7 +51,7 @@ window.getPropertySelectors = function() {
                 'div[data-cy="search.listing.promoted"] ul',
                 'div[data-cy="search.listing.organic"] ul',
                 'div[data-cy="search.map.listing.organic"] ul',
-                'ul.css-yd8sa2' // companii/agentii listing container
+                'ul.css-yd8sa2' // companii/agentii and ansamblu/unit listing container
             ],
             propertyIdAttribute: null
         };
