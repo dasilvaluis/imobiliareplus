@@ -93,6 +93,7 @@ window.addButtonsToDetailPage = function() {
             console.log("ImobiliarePlus: OLX Property ID not found on detail page.");
             return;
         }
+        
         const propertyInfo = {
             id: propertyId,
             title: window.getOlxDetailPageTitle(),
@@ -101,36 +102,54 @@ window.addButtonsToDetailPage = function() {
             hostname: currentHostname,
             price: window.getOlxDetailPagePrice()
         };
-
-        // Attempt to find a suitable target element for OLX
-        // Common places: near contact form, price, or user actions.
-        // div[data-testid="aside-sticky-container"] is a good candidate for the sidebar.
-        // div.css-1h3925s might be another container around user actions or details.
-        const targetElement = document.querySelector('div[data-testid="aside-sticky-container"]') || document.querySelector('div.css-1h3925s');
-
+        
+        const targetElement = document.querySelector('div[data-testid="image-galery-container"]');
         if (!targetElement) {
             console.log("ImobiliarePlus: OLX target element for buttons not found.");
             return;
         }
+        
         if (targetElement.querySelector('.imobiliare-plus-buttons-detail-page')) return;
-
+        
         const buttonsContainer = window.createPropertyButtons(propertyInfo, 'olx', null, browserAPI);
         buttonsContainer.classList.add('imobiliare-plus-buttons-detail-page');
-        // Basic styling for OLX buttons - can be refined
-        buttonsContainer.style.marginTop = '10px';
-        buttonsContainer.style.marginBottom = '10px';
-        buttonsContainer.style.padding = '10px';
-        buttonsContainer.style.border = '1px solid #ddd';
-        buttonsContainer.style.borderRadius = '4px';
-        buttonsContainer.style.display = 'flex';
-        buttonsContainer.style.gap = '10px';
-        buttonsContainer.style.justifyContent = 'space-around';
-
+        
+        // Apply styles with !important to prevent overrides
+        buttonsContainer.style.cssText = `
+            margin-top: 10px !important;
+            margin-bottom: 10px !important;
+            padding: 10px !important;
+            border: 1px solid #ddd !important;
+            border-radius: 4px !important;
+            display: flex !important;
+            gap: 10px !important;
+            justify-content: space-around !important;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+            box-sizing: border-box !important;
+        `;
+        
         buttonsContainer.querySelectorAll('button').forEach(button => {
-            button.style.padding = '8px 12px';
-            button.style.fontSize = '14px';
-            button.style.flexGrow = '1';
+            button.style.cssText = `
+                padding: 8px 12px !important;
+                font-size: 14px !important;
+                flex: 1 1 0% !important;
+                border-radius: 20px !important;
+                cursor: pointer !important;
+                font-weight: 500 !important;
+                transition: 0.2s !important;
+                box-shadow: rgba(0, 0, 0, 0.08) 0px 1px 3px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 6px !important;
+                outline: none !important;
+                background-color: white !important;
+                border: 1px solid rgb(224, 224, 224) !important;
+                color: rgb(30, 40, 57) !important;
+            `;
         });
-        targetElement.insertBefore(buttonsContainer, targetElement.firstChild); // Insert at the top of the container
+        
+        const firstChild = targetElement.firstChild;
+        targetElement.insertBefore(buttonsContainer, firstChild);
     }
 };
