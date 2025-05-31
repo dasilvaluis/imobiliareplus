@@ -80,75 +80,9 @@ function getPropertySelectors() {
 
 const selectors = getPropertySelectors();
 
-// Function to add favorite and ignore buttons to a property card
-function addButtonsToCard(card) {
-    if (!selectors) return; // Unsupported site or selectors not found
-
-    // Skip if buttons already added
-    if (card.querySelector('.imobiliare-plus-buttons')) return;
-
-    const propertyLinkElement = card.querySelector(selectors.link);
-    if (!propertyLinkElement) {
-        console.warn('Property link element not found for card:', card);
-        return;
-    }
-    const propertyUrl = propertyLinkElement.href;
-    
-    let propertyId;
-    if (selectors.idRegex) {
-        const match = propertyUrl.match(selectors.idRegex);
-        if (match && match[1]) {
-            propertyId = match[1];
-        }
-    }
-    
-    if (!propertyId) {
-        console.warn('Property ID not found, falling back to URL hash.');
-        propertyId = btoa(propertyUrl).slice(0, 12);
-    }
-
-    if (favoriteCache?.some(p => p.id === propertyId)) {
-        console.log('Property already favorited:', propertyId);
-        return; // Skip if already favorited
-    }
-    if (ignoredCache?.some(p => p.id === propertyId)) {
-        console.log('Property already ignored:', propertyId);
-        return; // Skip if already ignored
-    }
-
-    // Get property details
-    const propertyTitle = card.querySelector(selectors.title)?.textContent.trim() || '';
-    
-    let thumbnailUrl = '';
-    if (typeof selectors.thumbnail === 'function') {
-        thumbnailUrl = selectors.thumbnail(card, propertyId) || '';
-    } else { 
-        // Fallback for simple string selector (though function is preferred)
-        const thumbnailImgElement = card.querySelector(selectors.thumbnail);
-        thumbnailUrl = thumbnailImgElement?.src || '';
-    }
-
-    let propertyPrice = '';
-    if (selectors.priceExtractor) {
-        // Use the custom price extraction function
-        propertyPrice = selectors.priceExtractor(card) || '';
-    } else if (selectors.price) {
-        // Use the simple selector as fallback
-        const priceElement = card.querySelector(selectors.price);
-        if (priceElement) {
-            propertyPrice = priceElement.textContent.trim();
-        }
-    }
-    const propertyInfo = {
-        id: propertyId,
-        title: propertyTitle,
-        url: propertyUrl,
-        thumbnail: thumbnailUrl,
-        hostname: currentHostname,
-        price: propertyPrice
-    };
-
-    console.log('Found property:', propertyInfo);
+// Function to create favorite and ignore buttons
+function createPropertyButtons(propertyInfo, siteType) {
+    // siteType is not used for now, but can be used for site-specific styling tweaks later
 
     const buttonsContainer = document.createElement('div');
     buttonsContainer.className = 'imobiliare-plus-buttons';
@@ -205,7 +139,7 @@ function addButtonsToCard(card) {
         gap: 6px;
         outline: none;
     `;
-    
+
     // Favorite button hover
     favoriteButton.addEventListener('mouseover', () => {
         if (!favoriteButton.classList.contains('active')) {
@@ -233,17 +167,14 @@ function addButtonsToCard(card) {
             ignoreButton.style.borderColor = '#e0e0e0';
         }
     });
+
     // Add buttons to container
     buttonsContainer.appendChild(favoriteButton);
     buttonsContainer.appendChild(ignoreButton);
 
-    // Add container to card
-    card.appendChild(buttonsContainer);
-
-    
     // Check if property is already favorite/ignored
-    browserAPI.runtime.sendMessage({ type: 'GET_FAVORITE_PROPERTIES', hostname: currentHostname }, response => {
-        if (response.properties.some(p => p.id === propertyId && p.hostname === currentHostname)) {
+    browserAPI.runtime.sendMessage({ type: 'GET_FAVORITE_PROPERTIES', hostname: propertyInfo.hostname }, response => {
+        if (response.properties.some(p => p.id === propertyInfo.id && p.hostname === propertyInfo.hostname)) {
             favoriteButton.style.backgroundColor = '#ffebb3';
             favoriteButton.style.color = '#b18000';
             favoriteButton.style.boxShadow = 'inset 0 1px 3px rgba(0,0,0,0.1)';
@@ -252,13 +183,16 @@ function addButtonsToCard(card) {
         }
     });
 
-    browserAPI.runtime.sendMessage({ type: 'GET_IGNORED_PROPERTIES', hostname: currentHostname }, response => {
-        if (response.properties.some(p => p.id === propertyId && p.hostname === currentHostname)) {
+    browserAPI.runtime.sendMessage({ type: 'GET_IGNORED_PROPERTIES', hostname: propertyInfo.hostname }, response => {
+        if (response.properties.some(p => p.id === propertyInfo.id && p.hostname === propertyInfo.hostname)) {
             ignoreButton.style.backgroundColor = '#ffdbdb';
             ignoreButton.style.color = '#d32f2f';
             ignoreButton.style.boxShadow = 'inset 0 1px 3px rgba(0,0,0,0.1)';
             ignoreButton.classList.add('active');
-            card.style.opacity = '0.6';
+            // Assuming the card is the parent of buttonsContainer. This might need adjustment if card is not directly accessible here.
+            // For now, this direct styling of the card is removed as createPropertyButtons should only be responsible for buttons.
+            // The card styling will be handled in addButtonsToCard after appending the buttons.
+            // card.style.opacity = '0.6';
         }
     });
 
@@ -267,7 +201,6 @@ function addButtonsToCard(card) {
         event.preventDefault();
         event.stopPropagation();
         
-        // Add a visual feedback effect
         favoriteButton.style.transform = 'scale(0.95)';
         setTimeout(() => { favoriteButton.style.transform = 'scale(1)'; }, 100);
         
@@ -298,7 +231,6 @@ function addButtonsToCard(card) {
         event.preventDefault();
         event.stopPropagation();
         
-        // Add a visual feedback effect
         ignoreButton.style.transform = 'scale(0.95)';
         setTimeout(() => { ignoreButton.style.transform = 'scale(1)'; }, 100);
         
@@ -307,23 +239,117 @@ function addButtonsToCard(card) {
             propertyInfo: propertyInfo
         }, response => {
             if (response.success) {
+                // The card opacity update needs to happen in addButtonsToCard,
+                // as createPropertyButtons doesn't have direct access to the 'card' element.
+                // We can pass a callback or handle it in the caller.
+                // For now, let's assume the caller (addButtonsToCard) will handle card opacity.
                 if (response.isIgnored) {
                     ignoreButton.style.backgroundColor = '#1e2839';
                     ignoreButton.style.color = '#ffffff';
                     ignoreButton.style.border = '1px solid #1e2839';
                     ignoreButton.style.boxShadow = '0 1px 3px rgba(0,0,0,0.12)';
                     ignoreButton.classList.add('active');
-                    card.style.opacity = '0.6';
-                    card.style.transition = 'opacity 0.3s ease';
                 } else {
                     ignoreButton.style.backgroundColor = '#f8f8f8';
                     ignoreButton.style.color = '#555';
                     ignoreButton.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
                     ignoreButton.classList.remove('active');
-                    card.style.opacity = '1';
+                }
+                 // Update card opacity based on ignore state in addButtonsToCard
+                const card = buttonsContainer.closest(selectors.card); // Try to find the card
+                if (card) {
+                    if (response.isIgnored) {
+                        card.style.opacity = '0.6';
+                        card.style.transition = 'opacity 0.3s ease';
+                    } else {
+                        card.style.opacity = '1';
+                    }
                 }
             }
         });
+    });
+
+    return buttonsContainer;
+}
+
+// Function to add favorite and ignore buttons to a property card
+function addButtonsToCard(card) {
+    if (!selectors) return; // Unsupported site or selectors not found
+
+    // Skip if buttons already added
+    if (card.querySelector('.imobiliare-plus-buttons')) return;
+
+    const propertyLinkElement = card.querySelector(selectors.link);
+    if (!propertyLinkElement) {
+        console.warn('Property link element not found for card:', card);
+        return;
+    }
+    const propertyUrl = propertyLinkElement.href;
+
+    let propertyId;
+    if (selectors.idRegex) {
+        const match = propertyUrl.match(selectors.idRegex);
+        if (match && match[1]) {
+            propertyId = match[1];
+        }
+    }
+
+    if (!propertyId) {
+        console.warn('Property ID not found, falling back to URL hash.');
+        propertyId = btoa(propertyUrl).slice(0, 12);
+    }
+
+    if (favoriteCache?.some(p => p.id === propertyId)) {
+        console.log('Property already favorited:', propertyId);
+        return; // Skip if already favorited
+    }
+    if (ignoredCache?.some(p => p.id === propertyId)) {
+        console.log('Property already ignored:', propertyId);
+        return; // Skip if already ignored
+    }
+
+    // Get property details
+    const propertyTitle = card.querySelector(selectors.title)?.textContent.trim() || '';
+
+    let thumbnailUrl = '';
+    if (typeof selectors.thumbnail === 'function') {
+        thumbnailUrl = selectors.thumbnail(card, propertyId) || '';
+    } else {
+        // Fallback for simple string selector (though function is preferred)
+        const thumbnailImgElement = card.querySelector(selectors.thumbnail);
+        thumbnailUrl = thumbnailImgElement?.src || '';
+    }
+
+    let propertyPrice = '';
+    if (selectors.priceExtractor) {
+        // Use the custom price extraction function
+        propertyPrice = selectors.priceExtractor(card) || '';
+    } else if (selectors.price) {
+        // Use the simple selector as fallback
+        const priceElement = card.querySelector(selectors.price);
+        if (priceElement) {
+            propertyPrice = priceElement.textContent.trim();
+        }
+    }
+    const propertyInfo = {
+        id: propertyId,
+        title: propertyTitle,
+        url: propertyUrl,
+        thumbnail: thumbnailUrl,
+        hostname: currentHostname,
+        price: propertyPrice
+    };
+
+    console.log('Found property:', propertyInfo);
+
+    const buttonsContainer = createPropertyButtons(propertyInfo, currentHostname);
+    card.appendChild(buttonsContainer);
+
+    // Initial card styling based on ignored status (since this part was moved from createPropertyButtons)
+    browserAPI.runtime.sendMessage({ type: 'GET_IGNORED_PROPERTIES', hostname: propertyInfo.hostname }, response => {
+        if (response.properties.some(p => p.id === propertyInfo.id && p.hostname === propertyInfo.hostname)) {
+            card.style.opacity = '0.6';
+        }
     });
 }
 
@@ -449,7 +475,195 @@ function initialize() {
     loadCaches();
     console.log(`Initializing ImobiliarePlus on ${currentHostname}...`);
     setupObservers();
+
+    // Add buttons to detail page if applicable
+    addButtonsToDetailPage();
 }
+
+// Function to determine which detail page function to call
+function addButtonsToDetailPage() {
+    // Different handling based on the site
+    if (currentHostname.includes('imobiliare.ro')) {
+        // Check if we're on a property detail page
+        if (window.location.href.includes('/oferta/')) {
+            addButtonsToImobiliareDetailPage();
+        }
+    } else if (currentHostname.includes('storia.ro')) {
+        // Check if we're on a property detail page (Storia uses a different URL pattern)
+        if (window.location.pathname.match(/\/ro\/oferta\/[\w-]+\/[\w-]+/)) {
+            addButtonsToStoriaDetailPage();
+        }
+    }
+}
+
+// Function to add buttons to Imobiliare.ro detail page
+function addButtonsToImobiliareDetailPage() {
+    console.log('Attempting to add buttons to Imobiliare.ro detail page');
+
+    // 1. Extract Property ID
+    const urlMatch = window.location.href.match(/([A-Z0-9]+)$/i); // Matches trailing alphanumeric ID, typical for Imobiliare.ro
+    const propertyId = urlMatch ? urlMatch[1] : null;
+
+    if (!propertyId) {
+        console.error('ImobiliarePlus: Could not extract Property ID from URL:', window.location.href);
+        return;
+    }
+    console.log('Extracted Property ID:', propertyId);
+
+    // 2. Extract Property Title
+    let propertyTitle = document.querySelector('h1.titlu-anunt')?.textContent.trim();
+    if (!propertyTitle) {
+        propertyTitle = document.querySelector('meta[property="og:title"]')?.content || 'N/A';
+    }
+    console.log('Extracted Property Title:', propertyTitle);
+
+    // 3. Extract Property Price
+    // Imobiliare.ro detail pages often have price in a div like <div class="pret first blue"><strong>123.456 €</strong></div>
+    // Or within a specific structure like <div class="col-lg-7 col-md-12 coloana-left-detalii"> ... <div class="pret">
+    let propertyPrice = '';
+    const priceElement = document.querySelector('div.pret.first.blue strong'); // More specific selector
+    if (priceElement) {
+        propertyPrice = priceElement.textContent.trim();
+    } else {
+        // Fallback to a less specific selector if the primary one fails
+        const generalPriceElement = document.querySelector('.pret strong');
+        if (generalPriceElement) {
+            propertyPrice = generalPriceElement.textContent.trim();
+        } else {
+            propertyPrice = 'N/A';
+        }
+    }
+    console.log('Extracted Property Price:', propertyPrice);
+
+    // 4. Construct propertyInfo object
+    const propertyInfo = {
+        id: propertyId,
+        title: propertyTitle,
+        url: window.location.href,
+        thumbnail: document.querySelector('meta[property="og:image"]')?.content || '', // Attempt to get thumbnail from meta tag
+        hostname: currentHostname,
+        price: propertyPrice
+    };
+
+    // 5. Locate Target Element
+    const targetElement = document.querySelector('div.agent-contact-enquiry.mt-0');
+    if (!targetElement) {
+        console.error('ImobiliarePlus: Target element for buttons not found on detail page.');
+        return;
+    }
+
+    // 6. Check if Buttons Already Exist
+    if (targetElement.querySelector('.imobiliare-plus-buttons-detail-page')) {
+        console.log('ImobiliarePlus: Buttons already exist on detail page.');
+        return;
+    }
+
+    // 7. Create and Append Buttons
+    const buttonsContainer = createPropertyButtons(propertyInfo, 'imobiliare');
+    buttonsContainer.classList.add('imobiliare-plus-buttons-detail-page');
+
+    // Apply specific styles for detail page
+    buttonsContainer.style.marginTop = '15px';
+    buttonsContainer.style.marginBottom = '15px';
+    buttonsContainer.style.padding = '0'; // Remove card padding
+
+    // Adjust button styles for detail page if needed (example: making them a bit smaller)
+    const detailPageButtons = buttonsContainer.querySelectorAll('button');
+    detailPageButtons.forEach(button => {
+        button.style.padding = '6px 10px';
+        button.style.fontSize = '12px';
+    });
+
+    targetElement.appendChild(buttonsContainer);
+    console.log('ImobiliarePlus: Buttons added to detail page.', propertyInfo);
+}
+
+// Function to add buttons to Storia.ro detail page
+function addButtonsToStoriaDetailPage() {
+    console.log('Attempting to add buttons to Storia.ro detail page');
+
+    // 1. Extract Property ID
+    const pathMatch = window.location.pathname.match(/\/ro\/oferta\/[\w-]+\/([\w-]+)/);
+    const propertyId = pathMatch ? pathMatch[1] : null;
+
+    if (!propertyId) {
+        console.error('ImobiliarePlus: Could not extract Property ID from URL path:', window.location.pathname);
+        return;
+    }
+    console.log('Extracted Property ID:', propertyId);
+
+    // 2. Extract Property Title
+    let propertyTitle = document.querySelector('h1[data-cy="adPage__title"]')?.textContent.trim();
+    if (!propertyTitle) {
+        propertyTitle = document.querySelector('meta[property="og:title"]')?.content || 'N/A';
+    }
+    console.log('Extracted Property Title:', propertyTitle);
+
+    // 3. Extract Property Price
+    let propertyPrice = document.querySelector('[data-cy="adPage__content__price_value"]')?.textContent.trim();
+    if (!propertyPrice) {
+        // Fallback for Storia price, structure might vary
+        const priceElement = document.querySelector('[data-testid="ad-price-container"] .css-12vqlj3'); // Example from a potential structure
+        if (priceElement) {
+            propertyPrice = priceElement.textContent.trim();
+        } else {
+            propertyPrice = 'N/A';
+        }
+    }
+    // Clean price (remove non-numeric characters except comma/dot for decimals, then normalize)
+    if (propertyPrice !== 'N/A') {
+        propertyPrice = propertyPrice.replace(/[^0-9.,€]/g, "").replace(',', '.');
+    }
+    console.log('Extracted Property Price:', propertyPrice);
+
+    // 4. Construct propertyInfo object
+    const propertyInfo = {
+        id: propertyId,
+        title: propertyTitle,
+        url: window.location.href,
+        thumbnail: document.querySelector('meta[property="og:image"]')?.content || '',
+        hostname: currentHostname,
+        price: propertyPrice
+    };
+
+    // 5. Locate Target Element
+    const targetElement = document.querySelector('div[data-sentry-element="AsideContent"]');
+    if (!targetElement) {
+        console.error('ImobiliarePlus: Target element for buttons not found on Storia detail page.');
+        return;
+    }
+
+    // 6. Check if Buttons Already Exist
+    const buttonClassName = 'storia-plus-buttons-detail-page';
+    if (targetElement.querySelector('.' + buttonClassName)) {
+        console.log('ImobiliarePlus: Buttons already exist on Storia detail page.');
+        return;
+    }
+
+    // 7. Create and Append Buttons
+    const buttonsContainer = createPropertyButtons(propertyInfo, 'storia');
+    buttonsContainer.classList.add(buttonClassName);
+    buttonsContainer.classList.add('imobiliare-plus-buttons-detail-page'); // Also add generic detail page class if common styling applies
+
+    // Apply specific styles for Storia detail page
+    buttonsContainer.style.marginTop = '15px';
+    buttonsContainer.style.marginBottom = '15px';
+    buttonsContainer.style.padding = '10px'; // Add some padding around the buttons
+    buttonsContainer.style.width = '100%'; // Ensure it takes full width of sidebar
+
+    // Adjust individual button styles if needed (e.g., ensure they stack or align well)
+    const detailPageButtons = buttonsContainer.querySelectorAll('button');
+    detailPageButtons.forEach(button => {
+        button.style.flexBasis = '100%'; // Make buttons take full width if they are in a flex column
+    });
+    // If buttonsContainer is already flex row, this might not be needed or flex-direction should be column
+    // buttonsContainer.style.flexDirection = 'column'; // If buttons should stack vertically
+
+    // Insert before the first child, which is often the contact form or similar content
+    targetElement.insertBefore(buttonsContainer, targetElement.firstChild);
+    console.log('ImobiliarePlus: Buttons added to Storia detail page.', propertyInfo);
+}
+
 
 let lastUrl = location.href;
 const urlObserver = new MutationObserver(() => {
