@@ -25,11 +25,27 @@
   "content_scripts": [
     {
       "matches": ["*://*.imobiliare.ro/*"],
-      "js": ["content/content.js"]
+      "js": [
+        "content/selectors.js",
+        "content/caches.js",
+        "content/buttonState.js",
+        "content/cardProcessing.js",
+        "content/observers.js",
+        "content/detailPage.js",
+        "content/main.js"
+      ]
     },
     {
       "matches": ["*://*.storia.ro/*"],
-      "js": ["content/content.js"]
+      "js": [
+        "content/selectors.js",
+        "content/caches.js",
+        "content/buttonState.js",
+        "content/cardProcessing.js",
+        "content/observers.js",
+        "content/detailPage.js",
+        "content/main.js"
+      ]
     }
   ],
   
@@ -48,4 +64,4 @@
   "web_accessible_resources": [
     "icons/*"
   ]
-} 
+}
