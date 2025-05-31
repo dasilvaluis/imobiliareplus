@@ -103,14 +103,12 @@ window.addButtonsToDetailPage = function() {
             price: window.getOlxDetailPagePrice()
         };
         
-        const targetElement = document.querySelector('div[data-testid="image-galery-container"]');
+        const targetElement = document.querySelector('nav[role="navigation"]');
         if (!targetElement) {
             console.log("ImobiliarePlus: OLX target element for buttons not found.");
             return;
         }
-        
         if (targetElement.querySelector('.imobiliare-plus-buttons-detail-page')) return;
-        
         const buttonsContainer = window.createPropertyButtons(propertyInfo, 'olx', null, browserAPI);
         buttonsContainer.classList.add('imobiliare-plus-buttons-detail-page');
         
@@ -149,7 +147,6 @@ window.addButtonsToDetailPage = function() {
             `;
         });
         
-        const firstChild = targetElement.firstChild;
-        targetElement.insertBefore(buttonsContainer, firstChild);
+            targetElement.appendChild(buttonsContainer);
     }
 };

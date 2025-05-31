@@ -60,6 +60,35 @@ window.setupObservers = function() {
             window.activeObservers = activeObservers;
         }
     }
+    // OLX.ro specific detail page observer
+    if (currentHostname.includes('olx.ro')) {
+        let olxDetailObserver = null;
+        let lastButtonsInjectedAt = 0;
+        function tryInjectOlxButtons() {
+            const mainContainer = document.querySelector('div[data-testid="main"]');
+            // Check for overlays or modals that might cover the main content
+            const overlay = document.querySelector('[data-testid="modal-root"], .css-1p2v1a9, .css-1b8l6p7');
+            // Only inject if mainContainer exists, is visible, and no overlay is present
+            if (mainContainer && mainContainer.offsetParent !== null && !overlay) {
+                // Prevent rapid reinjection
+                const now = Date.now();
+                if (now - lastButtonsInjectedAt > 1000) {
+                    window.addButtonsToDetailPage();
+                    lastButtonsInjectedAt = now;
+                }
+            }
+        }
+        // Observe body for changes (OLX is highly dynamic)
+        olxDetailObserver = new MutationObserver(() => {
+            tryInjectOlxButtons();
+        });
+        olxDetailObserver.observe(document.body, { childList: true, subtree: true });
+        // Also try on DOMContentLoaded and after a short delay
+        document.addEventListener('DOMContentLoaded', tryInjectOlxButtons);
+        setTimeout(tryInjectOlxButtons, 1500);
+        activeObservers.push(olxDetailObserver);
+        window.activeObservers = activeObservers;
+    }
 };
 
 window.setupScrollAndInterval = function() {
