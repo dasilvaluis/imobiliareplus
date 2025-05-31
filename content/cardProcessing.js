@@ -11,11 +11,29 @@ window.addButtonsToCard = function(card) {
     if (!propertyLinkElement) return;
     const propertyUrl = propertyLinkElement.href;
     let propertyId;
-    if (selectors.idRegex) {
+
+    if (currentHostname.includes('olx.ro')) {
+        if (selectors.propertyIdAttribute && card.getAttribute(selectors.propertyIdAttribute)) {
+            propertyId = card.getAttribute(selectors.propertyIdAttribute);
+            // OLX IDs from cards sometimes have extra characters, try to clean it with idRegex
+            if (propertyId && selectors.idRegex) {
+                const idMatch = propertyId.match(selectors.idRegex);
+                if (idMatch && idMatch[1]) {
+                    propertyId = idMatch[1];
+                }
+            }
+        }
+        // Fallback to URL if attribute not found or doesn't yield ID
+        if (!propertyId && selectors.idRegex) {
+            const match = propertyUrl.match(selectors.idRegex);
+            if (match && match[1]) propertyId = match[1];
+        }
+    } else if (selectors.idRegex) { // Existing logic for other sites
         const match = propertyUrl.match(selectors.idRegex);
         if (match && match[1]) propertyId = match[1];
     }
-    if (!propertyId) propertyId = btoa(propertyUrl).slice(0, 12);
+
+    if (!propertyId) propertyId = btoa(propertyUrl).slice(0, 12); // Generic fallback
     const propertyTitle = card.querySelector(selectors.title)?.textContent.trim() || '';
     let thumbnailUrl = '';
     if (typeof selectors.thumbnail === 'function') {
@@ -63,6 +81,23 @@ window.updateCardAppearance = function(propertyId, isFavorite, isIgnored, hostna
             if (linkEl && linkEl.href) {
                 const idMatch = linkEl.href.match(selectors.idRegex);
                 if (idMatch && idMatch[1] && idMatch[1].toLowerCase() === propertyId.toLowerCase()) {
+                    cardToUpdate = c;
+                    break;
+                }
+            }
+        }
+    }
+    if (!cardToUpdate) {
+        // Fallback for OLX if ID was derived from card attribute and doesn't match URL structure directly
+        if (hostname.includes('olx.ro') && selectors.propertyIdAttribute) {
+            const allCards = document.querySelectorAll(selectors.card);
+            for (const c of allCards) {
+                let cardId = c.getAttribute(selectors.propertyIdAttribute);
+                if (cardId && selectors.idRegex) {
+                    const idMatch = cardId.match(selectors.idRegex);
+                    if (idMatch && idMatch[1]) cardId = idMatch[1];
+                }
+                if (cardId && cardId.toLowerCase() === propertyId.toLowerCase()) {
                     cardToUpdate = c;
                     break;
                 }

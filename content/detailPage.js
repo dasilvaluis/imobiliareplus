@@ -87,5 +87,50 @@ window.addButtonsToDetailPage = function() {
             ignoreButton.style.borderColor = '#1e2839';
         }
         targetElement.appendChild(buttonsContainer);
+    } else if (currentHostname.includes('olx.ro')) {
+        const propertyId = window.getOlxDetailPageId();
+        if (!propertyId) {
+            console.log("ImobiliarePlus: OLX Property ID not found on detail page.");
+            return;
+        }
+        const propertyInfo = {
+            id: propertyId,
+            title: window.getOlxDetailPageTitle(),
+            url: window.location.href,
+            thumbnail: window.getOlxDetailPageThumbnail(),
+            hostname: currentHostname,
+            price: window.getOlxDetailPagePrice()
+        };
+
+        // Attempt to find a suitable target element for OLX
+        // Common places: near contact form, price, or user actions.
+        // div[data-testid="aside-sticky-container"] is a good candidate for the sidebar.
+        // div.css-1h3925s might be another container around user actions or details.
+        const targetElement = document.querySelector('div[data-testid="aside-sticky-container"]') || document.querySelector('div.css-1h3925s');
+
+        if (!targetElement) {
+            console.log("ImobiliarePlus: OLX target element for buttons not found.");
+            return;
+        }
+        if (targetElement.querySelector('.imobiliare-plus-buttons-detail-page')) return;
+
+        const buttonsContainer = window.createPropertyButtons(propertyInfo, 'olx', null, browserAPI);
+        buttonsContainer.classList.add('imobiliare-plus-buttons-detail-page');
+        // Basic styling for OLX buttons - can be refined
+        buttonsContainer.style.marginTop = '10px';
+        buttonsContainer.style.marginBottom = '10px';
+        buttonsContainer.style.padding = '10px';
+        buttonsContainer.style.border = '1px solid #ddd';
+        buttonsContainer.style.borderRadius = '4px';
+        buttonsContainer.style.display = 'flex';
+        buttonsContainer.style.gap = '10px';
+        buttonsContainer.style.justifyContent = 'space-around';
+
+        buttonsContainer.querySelectorAll('button').forEach(button => {
+            button.style.padding = '8px 12px';
+            button.style.fontSize = '14px';
+            button.style.flexGrow = '1';
+        });
+        targetElement.insertBefore(buttonsContainer, targetElement.firstChild); // Insert at the top of the container
     }
 };

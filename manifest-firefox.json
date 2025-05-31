@@ -24,19 +24,7 @@
   
   "content_scripts": [
     {
-      "matches": ["*://*.imobiliare.ro/*"],
-      "js": [
-        "content/selectors.js",
-        "content/caches.js",
-        "content/buttonState.js",
-        "content/cardProcessing.js",
-        "content/observers.js",
-        "content/detailPage.js",
-        "content/main.js"
-      ]
-    },
-    {
-      "matches": ["*://*.storia.ro/*"],
+      "matches": ["*://*.imobiliare.ro/*","*://*.storia.ro/*", "*://*.olx.ro/*"],
       "js": [
         "content/selectors.js",
         "content/caches.js",
