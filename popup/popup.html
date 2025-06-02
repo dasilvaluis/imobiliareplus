@@ -4,30 +4,76 @@
     <meta charset="UTF-8">
     <title>ImobiliarePlus</title>
     <link rel="stylesheet" href="popup.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <div class="container">
+        <header class="app-header">
+            <div class="logo">
+                <i class="fas fa-home"></i>
+                <h1>ImobiliarePlus</h1>
+            </div>
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="Search properties...">
+                <i class="fas fa-search search-icon"></i>
+            </div>
+        </header>
+
         <div class="tabs">
-            <button class="tab-button active" data-tab="favorites">⭐ Favorites</button>
-            <button class="tab-button" data-tab="ignored">🚫 Ignored</button>
+            <button class="tab-button active" data-tab="favorites">
+                <i class="fas fa-star"></i> Favorites
+                <span id="favorites-count" class="count-badge">0</span>
+            </button>
+            <button class="tab-button" data-tab="ignored">
+                <i class="fas fa-ban"></i> Ignored
+                <span id="ignored-count" class="count-badge">0</span>
+            </button>
         </div>
         
         <div class="tab-content">
             <div id="favorites" class="tab-pane active">
-                <h3>Favorite Properties</h3>
+                <div class="list-header">
+                    <h3>Favorite Properties</h3>
+                    <div class="sort-controls">
+                        <select id="sortFavorites">
+                            <option value="default">Filter</option>
+                            <option value="price-asc">Price: Low to High</option>
+                            <option value="price-desc">Price: High to Low</option>
+                        </select>
+                    </div>
+                </div>
                 <div id="favorite-properties" class="properties-list">
-                    <!-- Favorite properties will be listed here -->
+                    <!-- Favorites will be listed here -->
+                </div>
+                <div id="favorites-empty" class="empty-state">
+                    <i class="fas fa-star empty-icon"></i>
+                    <p>No favorite properties yet</p>
+                    <p class="empty-hint">Browse property websites and click the star icon to add favorites</p>
                 </div>
             </div>
             
             <div id="ignored" class="tab-pane">
-                <h3>Ignored Properties</h3>
+                <div class="list-header">
+                    <h3>Ignored Properties</h3>
+                    <div class="sort-controls">
+                        <select id="sortIgnored">
+                            <option value="default">Filter</option>
+                            <option value="price-asc">Price: Low to High</option>
+                            <option value="price-desc">Price: High to Low</option>
+                        </select>
+                    </div>
+                </div>
                 <div id="ignored-properties" class="properties-list">
                     <!-- Ignored properties will be listed here -->
+                </div>
+                <div id="ignored-empty" class="empty-state">
+                    <i class="fas fa-ban empty-icon"></i>
+                    <p>No ignored properties</p>
+                    <p class="empty-hint">Browse property websites and click the ignore icon to hide properties</p>
                 </div>
             </div>
         </div>
     </div>
     <script src="./popup.js"></script>
 </body>
-</html> 
+</html>
