@@ -63,6 +63,26 @@ function createPropertyItem(property, isFavorite = false, isIgnored = false) {
     titleLink.style.fontWeight = 'bold';
     titleLink.style.marginBottom = '4px';
     titleLink.style.display = 'block';
+
+    const sourceSite = document.createElement('div');
+    sourceSite.className = 'property-source';
+
+    const sourceText = property.hostname ? 
+    `Source: ${property.hostname.replace(/^www\./, '').replace(/\.ro$/, '.ro')}` : 
+    '';
+
+    sourceSite.textContent = sourceText;
+    sourceSite.style.fontSize = '12px';
+    sourceSite.style.color = '#666';
+    sourceSite.style.marginBottom = '4px';
+
+    // Add price display if available
+    const priceElement = document.createElement('div');
+    priceElement.className = 'property-price';
+    priceElement.textContent = property.price || 'Price not available';
+    priceElement.style.fontWeight = 'bold';
+    priceElement.style.color = property.price ? '#4CAF50' : '#999';
+    priceElement.style.marginBottom = '8px';
     
     const actions = document.createElement('div');
     actions.className = 'property-actions';
@@ -100,6 +120,8 @@ function createPropertyItem(property, isFavorite = false, isIgnored = false) {
     const textContent = document.createElement('div');
     textContent.style.flex = '1';
     textContent.appendChild(titleLink);
+    textContent.appendChild(sourceSite);
+    textContent.appendChild(priceElement);
     textContent.appendChild(actions);
     
     content.appendChild(textContent);

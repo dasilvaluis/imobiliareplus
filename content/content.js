@@ -12,8 +12,34 @@ function getPropertySelectors() {
         return {
             card: '[id^="listing-"], .listing-card',
             link: 'a[href*="/oferta/"]',
+            price: null,
+            priceExtractor: (card) => {
+                const priceContainer = card.querySelector('[data-cy="card-price"]');
+                if (!priceContainer) return null;
+                
+                // Try to get just the current price (first direct text node or first strong element)
+                const strongPrice = priceContainer.querySelector('strong');
+                if (strongPrice) return strongPrice.textContent.trim();
+                
+                // Alternative approach: get first text content before any child elements
+                let priceText = '';
+                for (let node of priceContainer.childNodes) {
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        priceText = node.textContent.trim();
+                        if (priceText) break;
+                    }
+                }
+                
+                // If we found text with the € symbol, that's probably the price
+                if (priceText.includes('€')) return priceText;
+                
+                // Fallback: just get the first part before any special characters
+                const fullText = priceContainer.textContent.trim();
+                const match = fullText.match(/^([\d.,]+\s*€)/);
+                return match ? match[1] : fullText;
+            },
             idRegex: /-(\d+)$/,
-            title: 'h3 span', // Specific to imobiliare.ro structure
+            title: 'h3 span',
             thumbnail: (card, propertyId) => card.querySelector(`#gallery_slider_${propertyId} .swiper-slide img`)?.src,
             listContainer: '#scrollableList',
             propertyIdAttribute: null
@@ -22,6 +48,7 @@ function getPropertySelectors() {
         return {
             card: 'article[data-cy="listing-item"]',
             link: 'a[data-cy="listing-item-link"]',
+            price: 'span[data-sentry-component="Price"]',
             idRegex: /([A-Z0-9]+)$/i, // Capture ID like 'IDCAjn' from href
             title: 'p[data-cy="listing-item-title"]',
             thumbnail: (card, propertyId) => card.querySelector('img[data-cy="listing-item-image-source"]')?.src,
@@ -81,12 +108,24 @@ function addButtonsToCard(card) {
         thumbnailUrl = thumbnailImgElement?.src || '';
     }
 
+    let propertyPrice = '';
+    if (selectors.priceExtractor) {
+        // Use the custom price extraction function
+        propertyPrice = selectors.priceExtractor(card) || '';
+    } else if (selectors.price) {
+        // Use the simple selector as fallback
+        const priceElement = card.querySelector(selectors.price);
+        if (priceElement) {
+            propertyPrice = priceElement.textContent.trim();
+        }
+    }
     const propertyInfo = {
         id: propertyId,
         title: propertyTitle,
         url: propertyUrl,
         thumbnail: thumbnailUrl,
-        hostname: currentHostname // Store hostname for later use if needed
+        hostname: currentHostname,
+        price: propertyPrice
     };
 
     console.log('Found property:', propertyInfo);

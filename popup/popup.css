@@ -116,3 +116,15 @@ p {
     color: #666;
     font-size: 14px;
 } 
+
+.property-source {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.property-price {
+    font-weight: bold;
+    color: #4CAF50;
+    margin-bottom: 8px;
+}
