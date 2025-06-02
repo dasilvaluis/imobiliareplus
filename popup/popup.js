@@ -155,11 +155,28 @@ function sortPropertiesArray(properties, sortOption) {
 
 function extractNumericPrice(priceStr) {
     if (!priceStr) return Infinity; // Properties with no price go to the end
-    const matches = priceStr.match(/[\d,.]+/g);
-    if (matches && matches.length > 0) {
-        return parseFloat(matches[0].replace(/[,.]/g, ''));
-    }
-    return Infinity;
+    // Remove all non-digit, non-comma, non-dot, non-space
+    let cleaned = priceStr.replace(/[^\d.,\s]/g, '');
+    // Remove spaces (so 1 124 999 becomes 1124999)
+    cleaned = cleaned.replace(/\s+/g, '');
+    // Remove dots used as thousands separators (so 1.124.999 becomes 1124999)
+    cleaned = cleaned.replace(/\.(?=\d{3}(\.|$))/g, '');
+    // Remove commas (if any)
+    cleaned = cleaned.replace(/,/g, '');
+    // Now parse as float
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? Infinity : num;
+}
+
+// Helper to deduplicate properties by URL (case-insensitive, ignoring trailing slashes)
+function deduplicateProperties(properties) {
+    const seen = new Set();
+    return properties.filter(p => {
+        let url = (p.url || '').toLowerCase().replace(/\/$/, '');
+        if (seen.has(url)) return false;
+        seen.add(url);
+        return true;
+    });
 }
 
 // Function to create a property item element
@@ -280,24 +297,43 @@ function createPropertyItem(property, isFavorite = false, isIgnored = false) {
     return item;
 }
 
+function normalizePriceString(priceStr) {
+    if (!priceStr) return '';
+    // Remove all non-digit characters except spaces
+    let cleaned = priceStr.replace(/[^\d\s]/g, '');
+    // Remove leading/trailing spaces and collapse multiple spaces
+    cleaned = cleaned.trim().replace(/\s+/g, ' ');
+    // For millions, group by 3 digits from the end, separated by spaces
+    // e.g. 1124999 -> 1 124 999
+    let digits = cleaned.replace(/\s/g, '');
+    let result = '';
+    while (digits.length > 3) {
+        result = ' ' + digits.slice(-3) + result;
+        digits = digits.slice(0, -3);
+    }
+    result = digits + result;
+    return result.trim();
+}
+
 function displayProperties(properties, containerId, isFavorite = false, isIgnored = false) {
     const container = document.getElementById(containerId);
     const emptyStateId = isFavorite ? 'favorites-empty' : 'ignored-empty';
     const emptyState = document.getElementById(emptyStateId);
-    
-    // Clear the container
     container.innerHTML = '';
-    
     if (properties.length > 0) {
         emptyState.style.display = 'none';
         container.style.display = 'flex';
-        
         properties.forEach(property => {
+            // Normalize price for display
+            if (property.price) {
+                let priceNum = extractNumericPrice(property.price);
+                if (isFinite(priceNum)) {
+                    property.price = normalizePriceString(String(priceNum)) + ' €';
+                }
+            }
             const item = createPropertyItem(property, isFavorite, isIgnored);
             container.appendChild(item);
         });
-        
-        // Badge counts are now updated separately in updateAllBadgeCounts
     } else {
         container.style.display = 'none';
         emptyState.style.display = 'flex';
@@ -351,18 +387,14 @@ function loadFavoriteProperties(callback = null) {
     
     browserAPI.runtime.sendMessage({ type: 'GET_FAVORITE_PROPERTIES' }, response => {
         if (response && response.properties) {
-            favoriteProperties = response.properties;
+            // Deduplicate by id+hostname
+            favoriteProperties = deduplicateProperties(response.properties);
             applyCurrentFilters(); // Apply filters after loading
         } else {
-            // Handle error or empty state
             favoriteProperties = [];
             displayProperties([], 'favorite-properties', true);
         }
-        
-        // Update badge counts regardless of active tab
         updateAllBadgeCounts();
-        
-        // Call the callback if provided
         if (callback) callback();
     });
 }
@@ -385,24 +417,18 @@ function loadIgnoredProperties(callback = null) {
     
     browserAPI.runtime.sendMessage({ type: 'GET_IGNORED_PROPERTIES' }, response => {
         if (response && response.properties) {
-            ignoredProperties = response.properties;
-            
-            // Only apply filters to active tab
+            // Deduplicate by id+hostname
+            ignoredProperties = deduplicateProperties(response.properties);
             if (document.querySelector('.tab-pane.active').id === 'ignored') {
                 applyCurrentFilters();
             }
         } else {
-            // Handle error or empty state
             ignoredProperties = [];
             if (document.querySelector('.tab-pane.active').id === 'ignored') {
                 displayProperties([], 'ignored-properties', false, true);
             }
         }
-        
-        // Update badge counts regardless of active tab
         updateAllBadgeCounts();
-        
-        // Call the callback if provided
         if (callback) callback();
     });
 }
